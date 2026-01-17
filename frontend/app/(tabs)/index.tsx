@@ -11,29 +11,31 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockBooks, mockLibraries, defaultRegion, Book } from '@/data/mockData';
+import { Ionicons } from '@expo/vector-icons';
+import { mockBooks, mockLibraries, defaultRegion, getTikTokSource, Book } from '@/data/mockData';
 import { useBooks } from '@/context/BooksContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
-  const { addBook, isBookSaved } = useBooks();
+  const { addToTbr, isInTbr } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book>(mockBooks[0]);
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = ['25%', '50%'];
+  const snapPoints = ['30%', '55%'];
 
   const handleAddBook = useCallback(() => {
-    addBook(selectedBook);
-  }, [selectedBook, addBook]);
+    addToTbr(selectedBook);
+  }, [selectedBook, addToTbr]);
 
   const selectNextBook = useCallback(() => {
-    const currentIndex = mockBooks.findIndex((b) => b.id === selectedBook.id);
+    const currentIndex = mockBooks.findIndex((b) => b.isbn === selectedBook.isbn);
     const nextIndex = (currentIndex + 1) % mockBooks.length;
     setSelectedBook(mockBooks[nextIndex]);
   }, [selectedBook]);
 
-  const isSaved = isBookSaved(selectedBook.id);
+  const isSaved = isInTbr(selectedBook.isbn);
+  const bookTikTokSource = getTikTokSource(selectedBook.isbn);
 
   return (
     <GestureHandlerRootView style={styles.container}>
@@ -84,9 +86,17 @@ export default function DiscoverScreen() {
             <View style={styles.bookInfo}>
               <Text style={styles.bookTitle}>{selectedBook.title}</Text>
               <Text style={styles.bookAuthor}>{selectedBook.author}</Text>
-              <Text style={styles.tiktokSource}>
-                Found from BookTok video by {selectedBook.tiktokSource}
-              </Text>
+              {bookTikTokSource && (
+                <View style={styles.tiktokBadge}>
+                  <Ionicons name="logo-tiktok" size={10} color="#FFF" />
+                  <Text style={styles.tiktokBadgeText}>BookTok</Text>
+                </View>
+              )}
+              {selectedBook.description && (
+                <Text style={styles.bookDescription} numberOfLines={2}>
+                  {selectedBook.description}
+                </Text>
+              )}
 
               <TouchableOpacity
                 style={[
@@ -97,16 +107,20 @@ export default function DiscoverScreen() {
                 disabled={isSaved}
               >
                 <Text style={styles.addButtonText}>
-                  {isSaved ? 'Added to My Books' : 'Add to My Books'}
+                  {isSaved ? 'Added to TBR' : 'Add to TBR'}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Next Book Button */}
-          <TouchableOpacity style={styles.nextButton} onPress={selectNextBook}>
-            <Text style={styles.nextButtonText}>See Another Book</Text>
-          </TouchableOpacity>
+          {mockBooks.length > 1 && (
+            <TouchableOpacity style={styles.nextButton} onPress={selectNextBook}>
+              <Text style={styles.nextButtonText}>
+                See Another Book ({mockBooks.findIndex((b) => b.isbn === selectedBook.isbn) + 1}/{mockBooks.length})
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Library Info */}
           <View style={styles.libraryInfo}>
@@ -148,7 +162,12 @@ const styles = StyleSheet.create({
     zIndex: 10,
     paddingHorizontal: 20,
     paddingBottom: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
   },
   appName: {
     fontSize: 28,
@@ -212,13 +231,29 @@ const styles = StyleSheet.create({
   bookAuthor: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  tiktokSource: {
+  tiktokBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A2E',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginBottom: 6,
+    gap: 4,
+  },
+  tiktokBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  bookDescription: {
     fontSize: 12,
     color: '#888',
     marginBottom: 12,
-    fontStyle: 'italic',
+    lineHeight: 16,
   },
   addButton: {
     backgroundColor: '#4A90A4',

@@ -1,37 +1,91 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Book } from '@/data/mockData';
+import { Book, mockCollectionBooks } from '@/data/mockData';
 
 interface BooksContextType {
-  savedBooks: Book[];
-  addBook: (book: Book) => void;
-  removeBook: (bookId: string) => void;
-  isBookSaved: (bookId: string) => boolean;
+  // TBR (To Be Read) - books user wants to read
+  tbrBooks: Book[];
+  addToTbr: (book: Book) => void;
+  removeFromTbr: (isbn: string) => void;
+  isInTbr: (isbn: string) => boolean;
+  moveToCollection: (isbn: string) => void;
+
+  // Collection - books user has read/owns
+  collectionBooks: Book[];
+  addToCollection: (book: Book) => void;
+  removeFromCollection: (isbn: string) => void;
+  isInCollection: (isbn: string) => boolean;
+
+  // Search
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 }
 
 const BooksContext = createContext<BooksContextType | undefined>(undefined);
 
 export function BooksProvider({ children }: { children: ReactNode }) {
-  const [savedBooks, setSavedBooks] = useState<Book[]>([]);
+  const [tbrBooks, setTbrBooks] = useState<Book[]>([]);
+  const [collectionBooks, setCollectionBooks] = useState<Book[]>(mockCollectionBooks);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const addBook = (book: Book) => {
-    setSavedBooks((prev) => {
-      if (prev.find((b) => b.id === book.id)) {
+  // TBR functions
+  const addToTbr = (book: Book) => {
+    setTbrBooks((prev) => {
+      if (prev.find((b) => b.isbn === book.isbn)) {
         return prev;
       }
       return [...prev, book];
     });
   };
 
-  const removeBook = (bookId: string) => {
-    setSavedBooks((prev) => prev.filter((b) => b.id !== bookId));
+  const removeFromTbr = (isbn: string) => {
+    setTbrBooks((prev) => prev.filter((b) => b.isbn !== isbn));
   };
 
-  const isBookSaved = (bookId: string) => {
-    return savedBooks.some((b) => b.id === bookId);
+  const isInTbr = (isbn: string) => {
+    return tbrBooks.some((b) => b.isbn === isbn);
+  };
+
+  const moveToCollection = (isbn: string) => {
+    const book = tbrBooks.find((b) => b.isbn === isbn);
+    if (book) {
+      removeFromTbr(isbn);
+      addToCollection(book);
+    }
+  };
+
+  // Collection functions
+  const addToCollection = (book: Book) => {
+    setCollectionBooks((prev) => {
+      if (prev.find((b) => b.isbn === book.isbn)) {
+        return prev;
+      }
+      return [...prev, book];
+    });
+  };
+
+  const removeFromCollection = (isbn: string) => {
+    setCollectionBooks((prev) => prev.filter((b) => b.isbn !== isbn));
+  };
+
+  const isInCollection = (isbn: string) => {
+    return collectionBooks.some((b) => b.isbn === isbn);
   };
 
   return (
-    <BooksContext.Provider value={{ savedBooks, addBook, removeBook, isBookSaved }}>
+    <BooksContext.Provider
+      value={{
+        tbrBooks,
+        addToTbr,
+        removeFromTbr,
+        isInTbr,
+        moveToCollection,
+        collectionBooks,
+        addToCollection,
+        removeFromCollection,
+        isInCollection,
+        searchQuery,
+        setSearchQuery,
+      }}>
       {children}
     </BooksContext.Provider>
   );
