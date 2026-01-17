@@ -1,9 +1,24 @@
+// Aligned with DB schema
+
 export interface Book {
-  id: string;
+  isbn: string;
   title: string;
   author: string;
   coverUrl: string;
-  tiktokSource: string;
+  description?: string;
+}
+
+export interface Video {
+  id: string;
+  platform: 'tiktok';
+  url: string;
+  transcript?: string;
+}
+
+export interface VideoBook {
+  videoId: string;
+  isbn: string;
+  confidence: number;
 }
 
 export interface Library {
@@ -17,25 +32,68 @@ export interface Library {
 // Mock books from BookTok
 export const mockBooks: Book[] = [
   {
-    id: '1',
+    isbn: '978-1649374042',
     title: 'Fourth Wing',
     author: 'Rebecca Yarros',
     coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1701980900i/61431922.jpg',
-    tiktokSource: '@booktokfaves',
+    description: 'A dragon rider academy fantasy romance.',
   },
   {
-    id: '2',
+    isbn: '978-1501110368',
     title: 'It Ends with Us',
     author: 'Colleen Hoover',
     coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1688011813i/27362503.jpg',
-    tiktokSource: '@readwithme',
+    description: 'A brave and heartbreaking novel about domestic abuse.',
   },
   {
-    id: '3',
+    isbn: '978-1635575569',
     title: 'A Court of Thorns and Roses',
     author: 'Sarah J. Maas',
     coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1620324329i/50659467.jpg',
-    tiktokSource: '@fantasyreads',
+    description: 'A fantasy retelling of Beauty and the Beast.',
+  },
+];
+
+// Mock videos (TikToks that mentioned these books)
+export const mockVideos: Video[] = [
+  {
+    id: 'v1',
+    platform: 'tiktok',
+    url: 'https://tiktok.com/@booktokfaves/video/1',
+  },
+  {
+    id: 'v2',
+    platform: 'tiktok',
+    url: 'https://tiktok.com/@readwithme/video/2',
+  },
+];
+
+// Video to book associations
+export const mockVideoBooks: VideoBook[] = [
+  { videoId: 'v1', isbn: '978-1649374042', confidence: 0.95 },
+  { videoId: 'v1', isbn: '978-1635575569', confidence: 0.88 },
+  { videoId: 'v2', isbn: '978-1501110368', confidence: 0.92 },
+];
+
+// Additional books for Collection (books user has read/owns)
+export const mockCollectionBooks: Book[] = [
+  {
+    isbn: '978-0316769488',
+    title: 'The Catcher in the Rye',
+    author: 'J.D. Salinger',
+    coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1398034300i/5107.jpg',
+  },
+  {
+    isbn: '978-0061120084',
+    title: 'To Kill a Mockingbird',
+    author: 'Harper Lee',
+    coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1553383690i/2657.jpg',
+  },
+  {
+    isbn: '978-0743273565',
+    title: 'The Great Gatsby',
+    author: 'F. Scott Fitzgerald',
+    coverUrl: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1490528560i/4671.jpg',
   },
 ];
 
@@ -85,3 +143,11 @@ export const defaultRegion = {
   latitudeDelta: 0.0922,
   longitudeDelta: 0.0421,
 };
+
+// Helper to get TikTok source for a book
+export function getTikTokSource(isbn: string): string | null {
+  const videoBook = mockVideoBooks.find((vb) => vb.isbn === isbn);
+  if (!videoBook) return null;
+  const video = mockVideos.find((v) => v.id === videoBook.videoId);
+  return video?.url || null;
+}
