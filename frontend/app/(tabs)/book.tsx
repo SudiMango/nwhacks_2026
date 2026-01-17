@@ -14,20 +14,20 @@ import { useBooks } from '@/context/BooksContext';
 
 export default function BookTab() {
   const insets = useSafeAreaInsets();
-  const { addBook, isBookSaved } = useBooks();
+  const { addToTbr, isInTbr } = useBooks();
   const [selectedBook, setSelectedBook] = useState<Book>(mockBooks[0]);
 
   const handleAddBook = useCallback(() => {
-    addBook(selectedBook);
-  }, [addBook, selectedBook]);
+    addToTbr(selectedBook);
+  }, [addToTbr, selectedBook]);
 
   const selectNextBook = useCallback(() => {
-    const currentIndex = mockBooks.findIndex((b) => b.id === selectedBook.id);
+    const currentIndex = mockBooks.findIndex((b) => b.isbn === selectedBook.isbn);
     const nextIndex = (currentIndex + 1) % mockBooks.length;
     setSelectedBook(mockBooks[nextIndex]);
   }, [selectedBook]);
 
-  const isSaved = isBookSaved(selectedBook.id);
+  const isSaved = isInTbr(selectedBook.isbn);
 
   return (
     <ScrollView

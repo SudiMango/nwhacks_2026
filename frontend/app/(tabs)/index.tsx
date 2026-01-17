@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, useWindowDimensions, TextInput, TouchableOpacity, Keyboard, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  useWindowDimensions,
+  TextInput,
+  TouchableOpacity,
+  Keyboard,
+  Platform,
+} from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { mockBooks, mockLibraries, defaultRegion, getTikTokSource, Book } from '@/data/mockData';
-import { useBooks } from '@/context/BooksContext';
+
+import { mockLibraries, defaultRegion } from '@/data/mockData';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -35,23 +45,6 @@ export default function DiscoverScreen() {
       hideSub.remove();
     };
   }, []);
-  const { addToTbr, isInTbr } = useBooks();
-  const [selectedBook, setSelectedBook] = useState<Book>(mockBooks[0]);
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = ['30%', '55%'];
-
-  const handleAddBook = useCallback(() => {
-    addToTbr(selectedBook);
-  }, [selectedBook, addToTbr]);
-
-  const selectNextBook = useCallback(() => {
-    const currentIndex = mockBooks.findIndex((b) => b.isbn === selectedBook.isbn);
-    const nextIndex = (currentIndex + 1) % mockBooks.length;
-    setSelectedBook(mockBooks[nextIndex]);
-  }, [selectedBook]);
-
-  const isSaved = isInTbr(selectedBook.isbn);
-  const bookTikTokSource = getTikTokSource(selectedBook.isbn);
 
   return (
     <View style={styles.container}>
@@ -107,77 +100,6 @@ export default function DiscoverScreen() {
         </TouchableOpacity>
       </View>
     </View>
-        <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
-          {/* Book Card */}
-          <View style={styles.bookCard}>
-            <Image
-              source={{ uri: selectedBook.coverUrl }}
-              style={styles.bookCover}
-              resizeMode="cover"
-            />
-            <View style={styles.bookInfo}>
-              <Text style={styles.bookTitle}>{selectedBook.title}</Text>
-              <Text style={styles.bookAuthor}>{selectedBook.author}</Text>
-              {bookTikTokSource && (
-                <View style={styles.tiktokBadge}>
-                  <Ionicons name="logo-tiktok" size={10} color="#FFF" />
-                  <Text style={styles.tiktokBadgeText}>BookTok</Text>
-                </View>
-              )}
-              {selectedBook.description && (
-                <Text style={styles.bookDescription} numberOfLines={2}>
-                  {selectedBook.description}
-                </Text>
-              )}
-
-              <TouchableOpacity
-                style={[
-                  styles.addButton,
-                  isSaved && styles.addButtonDisabled,
-                ]}
-                onPress={handleAddBook}
-                disabled={isSaved}
-              >
-                <Text style={styles.addButtonText}>
-                  {isSaved ? 'Added to TBR' : 'Add to TBR'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Next Book Button */}
-          {mockBooks.length > 1 && (
-            <TouchableOpacity style={styles.nextButton} onPress={selectNextBook}>
-              <Text style={styles.nextButtonText}>
-                See Another Book ({mockBooks.findIndex((b) => b.isbn === selectedBook.isbn) + 1}/{mockBooks.length})
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Library Info */}
-          <View style={styles.libraryInfo}>
-            <Text style={styles.libraryInfoTitle}>Nearby Places</Text>
-            {mockLibraries.slice(0, 3).map((library) => (
-              <View key={library.id} style={styles.libraryItem}>
-                <View
-                  style={[
-                    styles.libraryDot,
-                    {
-                      backgroundColor:
-                        library.type === 'library' ? '#4A90A4' : '#E07A5F',
-                    },
-                  ]}
-                />
-                <Text style={styles.libraryName}>{library.name}</Text>
-                <Text style={styles.libraryType}>
-                  {library.type === 'library' ? 'Library' : 'Bookstore'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </BottomSheetScrollView>
-      </BottomSheet>
-    </GestureHandlerRootView>
   );
 }
 
@@ -219,62 +141,17 @@ const styles = StyleSheet.create({
   searchBar: {
     position: 'absolute',
     flexDirection: 'row',
-    marginLeft: 16,
-    justifyContent: 'center',
-  },
-  bookTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1A2E',
-  },
-  bookAuthor: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 6,
-  },
-  tiktokBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A2E',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    marginBottom: 6,
-    gap: 4,
-  },
-  tiktokBadgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  bookDescription: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 12,
-    lineHeight: 16,
-  },
-  addButton: {
-    backgroundColor: '#4A90A4',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#0F1115',
     borderRadius: 28,
     paddingHorizontal: 18,
-    paddingVertical: 6,
+    paddingVertical: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 14,
-  },
-  searchText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   searchInput: {
     flex: 1,
