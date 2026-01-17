@@ -1,98 +1,282 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mockBooks, mockLibraries, defaultRegion, Book } from '@/data/mockData';
+import { useBooks } from '@/context/BooksContext';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function HomeScreen() {
+export default function DiscoverScreen() {
+  const insets = useSafeAreaInsets();
+  const { addBook, isBookSaved } = useBooks();
+  const [selectedBook, setSelectedBook] = useState<Book>(mockBooks[0]);
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = ['25%', '50%'];
+
+  const handleAddBook = useCallback(() => {
+    addBook(selectedBook);
+  }, [selectedBook, addBook]);
+
+  const selectNextBook = useCallback(() => {
+    const currentIndex = mockBooks.findIndex((b) => b.id === selectedBook.id);
+    const nextIndex = (currentIndex + 1) % mockBooks.length;
+    setSelectedBook(mockBooks[nextIndex]);
+  }, [selectedBook]);
+
+  const isSaved = isBookSaved(selectedBook.id);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <GestureHandlerRootView style={styles.container}>
+      {/* Floating Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <Text style={styles.appName}>Bookmarked</Text>
+        <Text style={styles.subtitle}>From BookTok to your shelf</Text>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {/* Map View */}
+      <MapView
+        style={styles.map}
+        initialRegion={defaultRegion}
+        provider={PROVIDER_DEFAULT}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
+      >
+        {mockLibraries.map((library) => (
+          <Marker
+            key={library.id}
+            coordinate={{
+              latitude: library.latitude,
+              longitude: library.longitude,
+            }}
+            title={library.name}
+            description={library.type === 'library' ? 'Public Library' : 'Bookstore'}
+            pinColor={library.type === 'library' ? '#4A90A4' : '#E07A5F'}
+          />
+        ))}
+      </MapView>
+
+      {/* Bottom Sheet */}
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={0}
+        snapPoints={snapPoints}
+        backgroundStyle={styles.bottomSheetBackground}
+        handleIndicatorStyle={styles.handleIndicator}
+      >
+        <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
+          {/* Book Card */}
+          <View style={styles.bookCard}>
+            <Image
+              source={{ uri: selectedBook.coverUrl }}
+              style={styles.bookCover}
+              resizeMode="cover"
+            />
+            <View style={styles.bookInfo}>
+              <Text style={styles.bookTitle}>{selectedBook.title}</Text>
+              <Text style={styles.bookAuthor}>{selectedBook.author}</Text>
+              <Text style={styles.tiktokSource}>
+                Found from BookTok video by {selectedBook.tiktokSource}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  isSaved && styles.addButtonDisabled,
+                ]}
+                onPress={handleAddBook}
+                disabled={isSaved}
+              >
+                <Text style={styles.addButtonText}>
+                  {isSaved ? 'Added to My Books' : 'Add to My Books'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Next Book Button */}
+          <TouchableOpacity style={styles.nextButton} onPress={selectNextBook}>
+            <Text style={styles.nextButtonText}>See Another Book</Text>
+          </TouchableOpacity>
+
+          {/* Library Info */}
+          <View style={styles.libraryInfo}>
+            <Text style={styles.libraryInfoTitle}>Nearby Places</Text>
+            {mockLibraries.slice(0, 3).map((library) => (
+              <View key={library.id} style={styles.libraryItem}>
+                <View
+                  style={[
+                    styles.libraryDot,
+                    {
+                      backgroundColor:
+                        library.type === 'library' ? '#4A90A4' : '#E07A5F',
+                    },
+                  ]}
+                />
+                <Text style={styles.libraryName}>{library.name}</Text>
+                <Text style={styles.libraryType}>
+                  {library.type === 'library' ? 'Library' : 'Bookstore'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
   },
-  stepContainer: {
-    gap: 8,
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  map: {
+    width: '100%',
+    height: SCREEN_HEIGHT * 0.7,
+  },
+  bottomSheetBackground: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  handleIndicator: {
+    backgroundColor: '#DDD',
+    width: 40,
+  },
+  bottomSheetContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  bookCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  bookCover: {
+    width: 100,
+    height: 150,
+    borderRadius: 8,
+    backgroundColor: '#E8E8E8',
+  },
+  bookInfo: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  bookTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A2E',
+  },
+  bookAuthor: {
+    fontSize: 14,
+    color: '#666',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  tiktokSource: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  addButton: {
+    backgroundColor: '#4A90A4',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  addButtonDisabled: {
+    backgroundColor: '#B8C9CE',
+  },
+  addButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  nextButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 12,
+  },
+  nextButtonText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  libraryInfo: {
+    marginTop: 24,
+  },
+  libraryInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A2E',
+    marginBottom: 12,
+  },
+  libraryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  libraryDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  libraryName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+  },
+  libraryType: {
+    fontSize: 12,
+    color: '#888',
   },
 });
