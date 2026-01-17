@@ -14,8 +14,10 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useBooks } from '@/context/BooksContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Book } from '@/data/mockData';
@@ -32,16 +34,18 @@ const BOOK_HEIGHT = BOOK_WIDTH * 1.5;
 
 interface BookCardProps {
   book: Book;
+  onPress?: () => void;
   onLongPress: () => void;
   badgeIcon: 'time-outline' | 'checkmark-circle';
   badgeColor: string;
 }
 
-function BookCard({ book, onLongPress, badgeIcon, badgeColor }: BookCardProps) {
+function BookCard({ book, onPress, onLongPress, badgeIcon, badgeColor }: BookCardProps) {
   return (
     <TouchableOpacity
       style={styles.bookCard}
       activeOpacity={0.8}
+      onPress={onPress}
       onLongPress={onLongPress}
     >
       <View style={styles.bookCoverContainer}>
@@ -81,6 +85,7 @@ export default function MyBooksScreen() {
   const [showTiktokInput, setShowTiktokInput] = useState(false);
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   const toggleTiktokInput = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -155,6 +160,17 @@ export default function MyBooksScreen() {
 
   const hasBooks = tbrBooks.length > 0 || collectionBooks.length > 0;
   const hasFilteredBooks = filteredTbrBooks.length > 0 || filteredCollectionBooks.length > 0;
+
+  const handleFindOnMap = useCallback(() => {
+    setSelectedBook(null);
+    router.push('/(tabs)');
+  }, []);
+
+  const handlePurchase = useCallback(() => {
+    if (!selectedBook) return;
+    const query = encodeURIComponent(`${selectedBook.title} ${selectedBook.author}`);
+    Linking.openURL(`https://bookshop.org/search?keywords=${query}`);
+  }, [selectedBook]);
 
   return (
     <View style={styles.container}>
@@ -277,6 +293,7 @@ export default function MyBooksScreen() {
                     <BookCard
                       key={book.isbn}
                       book={book}
+                      onPress={() => setSelectedBook(book)}
                       onLongPress={() => {
                         moveToCollection(book.isbn);
                       }}
@@ -305,6 +322,7 @@ export default function MyBooksScreen() {
                     <BookCard
                       key={book.isbn}
                       book={book}
+                      onPress={() => setSelectedBook(book)}
                       onLongPress={() => removeFromCollection(book.isbn)}
                       badgeIcon="checkmark-circle"
                       badgeColor="#4A90A4"
@@ -336,6 +354,64 @@ export default function MyBooksScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Quick book preview overlay */}
+      {selectedBook && (
+        <View style={styles.overlay}>
+          <TouchableOpacity style={styles.overlayBack} activeOpacity={1} onPress={() => setSelectedBook(null)} />
+          <View style={styles.previewCard}>
+            <View style={styles.previewHeader}>
+              <View style={styles.previewCoverWrapper}>
+                <Image source={{ uri: selectedBook.coverUrl }} style={styles.previewCover} />
+                <View style={[styles.bookBadge, { backgroundColor: '#4A90A4' }]}>
+                  <Ionicons name="book-outline" size={14} color="#FFF" />
+                </View>
+              </View>
+              <View style={styles.previewText}>
+                <Text style={styles.previewTitle} numberOfLines={2}>
+                  {selectedBook.title}
+                </Text>
+                <Text style={styles.previewAuthor} numberOfLines={1}>
+                  {selectedBook.author}
+                </Text>
+                <View style={styles.previewMetaRow}>
+                  <View style={styles.metaPill}>
+                    <Ionicons name="star" size={14} color="#F5A524" />
+                    <Text style={styles.metaText}>
+                      {selectedBook.rating ? selectedBook.rating.toFixed(1) : '4.6'}
+                    </Text>
+                  </View>
+                  <View style={[styles.metaPill, styles.metaPillMuted]}>
+                    <Ionicons name="pricetag-outline" size={14} color="#6B7280" />
+                    <Text style={[styles.metaText, styles.metaTextMuted]}>
+                      {selectedBook.genre || 'Fiction'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedBook(null)} style={styles.closeButton}>
+                <Ionicons name="close" size={18} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.previewDescription} numberOfLines={3}>
+              {selectedBook.description ||
+                'A crowd favorite on BookTok. Tap find to see nearby libraries or bookstores carrying similar reads.'}
+            </Text>
+
+            <View style={styles.previewActions}>
+              <TouchableOpacity style={styles.buyButton} onPress={handlePurchase}>
+                <Ionicons name="cart-outline" size={18} color="#0F1115" />
+                <Text style={styles.buyButtonText}>Buy on Bookshop</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.findButton} onPress={handleFindOnMap}>
+                <Ionicons name="location-outline" size={18} color="#FFF" />
+                <Text style={styles.findButtonText}>Find</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -581,5 +657,130 @@ const styles = StyleSheet.create({
     width: 1,
     height: 30,
     backgroundColor: '#EEE',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayBack: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  previewCard: {
+    width: '88%',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  previewCoverWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  previewCover: {
+    width: 80,
+    height: 110,
+    borderRadius: 8,
+    backgroundColor: '#E8E8E8',
+  },
+  previewText: {
+    flex: 1,
+    gap: 6,
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  previewAuthor: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  previewMetaRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFF4E5',
+    borderRadius: 12,
+  },
+  metaPillMuted: {
+    backgroundColor: '#F3F4F6',
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  metaTextMuted: {
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  previewDescription: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#4B5563',
+    lineHeight: 18,
+  },
+  findButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  previewActions: {
+    marginTop: 16,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  buyButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E5E7EB',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  buyButtonText: {
+    color: '#0F1115',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  findButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F1115',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
   },
 });

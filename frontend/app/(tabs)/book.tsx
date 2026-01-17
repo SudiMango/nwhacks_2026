@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,6 +21,11 @@ export default function BookTab() {
   const handleAddBook = useCallback(() => {
     addToTbr(selectedBook);
   }, [addToTbr, selectedBook]);
+
+  const handlePurchase = useCallback(() => {
+    const query = encodeURIComponent(`${selectedBook.title} ${selectedBook.author}`);
+    Linking.openURL(`https://bookshop.org/search?keywords=${query}`);
+  }, [selectedBook]);
 
   const selectNextBook = useCallback(() => {
     const currentIndex = mockBooks.findIndex((b) => b.isbn === selectedBook.isbn);
@@ -61,6 +67,10 @@ export default function BookTab() {
             <Text style={styles.addButtonText}>
               {isSaved ? 'Added to My Books' : 'Add to My Books'}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.buyButton} onPress={handlePurchase}>
+            <Text style={styles.buyButtonText}>Buy on Bookshop.org</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -166,6 +176,19 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  buyButton: {
+    marginTop: 10,
+    backgroundColor: '#0F172A',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  buyButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   nextButton: {
     marginTop: 16,

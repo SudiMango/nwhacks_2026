@@ -58,39 +58,6 @@ export default function DiscoverScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Floating Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <Text style={styles.appName}>Bookmarked</Text>
-        <Text style={styles.subtitle}>From BookTok to your shelf</Text>
-        <View style={styles.locationSelector}>
-          {Object.entries(locationPresets).map(([key, config]) => {
-            const isActive = key === selectedLocation;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[styles.locationChip, isActive && styles.locationChipActive]}
-                onPress={() => setSelectedLocation(key as LocationKey)}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="location-outline"
-                  size={14}
-                  color={isActive ? '#0F1115' : '#6B7280'}
-                />
-                <Text
-                  style={[
-                    styles.locationChipText,
-                    isActive && styles.locationChipTextActive,
-                  ]}
-                >
-                  {config.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
       {/* Map View */}
       <MapView
         ref={mapRef}

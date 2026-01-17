@@ -6,6 +6,9 @@ export interface Book {
   author: string;
   coverUrl: string;
   description?: string;
+  // Optional metadata for quick views
+  rating?: number;
+  genre?: string;
 }
 
 export interface Video {
