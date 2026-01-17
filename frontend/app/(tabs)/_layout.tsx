@@ -7,7 +7,7 @@ import { HapticTab } from '@/components/haptic-tab';
 
 export default function TabLayout() {
   const { width } = useWindowDimensions();
-  const navWidth = width * 0.7;
+  const navWidth = width * 0.6;
   const sideOffset = (width - navWidth) / 2;
   const barHeight = Math.max(58, width * 0.14);
   const barHorizontalPadding = width * 0.05;

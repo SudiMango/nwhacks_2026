@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions, useWindowDimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, useWindowDimensions, TextInput, TouchableOpacity, Keyboard, Platform } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,13 +11,34 @@ export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const horizontalInset = Math.max(16, width * 0.07);
-  const bottomOffset = Math.max(12, width * 0.02);
-  const navEstimatedHeight = Math.max(72, width * 0.18);
+  const navEstimatedHeight = Math.max(58, width * 0.14); // mirror tab bar height logic
+  const bottomOffset = Math.max(insets.bottom + 10, width * 0.02); // safe-area aware gap above tab bar
+  const [searchQuery, setSearchQuery] = useState('');
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  useEffect(() => {
+    const onShow = (e: any) => setKeyboardOffset(e.endCoordinates?.height ?? 0);
+    const onHide = () => setKeyboardOffset(0);
+
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      onShow,
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      onHide,
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
       {/* Floating Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <Text style={styles.appName}>Bookmarked</Text>
         <Text style={styles.subtitle}>From BookTok to your shelf</Text>
       </View>
@@ -51,14 +72,21 @@ export default function DiscoverScreen() {
           {
             left: horizontalInset,
             right: horizontalInset,
-            bottom: bottomOffset + navEstimatedHeight,
+            bottom: bottomOffset + navEstimatedHeight + keyboardOffset,
           },
         ]}
       >
-        <Text style={styles.searchText}>spots to cowork from</Text>
-        <View style={styles.searchIcon}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="spots to cowork from"
+          placeholderTextColor="#C4C4CC"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+        />
+        <TouchableOpacity style={styles.searchIcon} activeOpacity={0.7}>
           <Ionicons name="search" size={18} color="#FFF" />
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -102,7 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F1115',
     borderRadius: 28,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
@@ -113,6 +141,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  searchInput: {
+    flex: 1,
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 10,
   },
   searchIcon: {
     width: 28,
