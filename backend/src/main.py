@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from .util.db import lifespan
 from fastapi.middleware.cors import CORSMiddleware
-from .router import health_router
+from .router import health_router, get_book_router
 
 app = FastAPI(lifespan=lifespan)
 
@@ -14,3 +14,4 @@ app.add_middleware(
 )
 
 app.include_router(health_router.router)
+app.include_router(get_book_router.router)
