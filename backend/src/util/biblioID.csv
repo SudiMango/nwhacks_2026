@@ -1,0 +1,47 @@
+Library System,ID,Country,Region
+New York Public Library,nypl,US,NY
+Toronto Public Library,tpl,CA,ON
+Chicago Public Library,chipublib,US,IL
+Seattle Public Library,spl,US,WA
+Boston Public Library,bpl,US,MA
+San Francisco Public,sfpl,US,CA
+Brooklyn Public Library,brooklyn,US,NY
+King County Library System,kcls,US,WA
+Austin Public Library,austin,US,TX
+Vancouver Public Library,vpl,CA,BC
+Edmonton Public Library,epl,CA,AB
+Ottawa Public Library,ottawa,CA,ON
+Calgary Public Library,calgary,CA,AB
+San Diego Public Library,sandiego,US,CA
+Multnomah County,multcolib,US,OR
+Pima County Public,pima,US,AZ
+Harris County Public,hcpl,US,TX
+Las Vegas-Clark County,lvccld,US,NV
+Columbus Metropolitan,columbus,US,OH
+Cincinnati & Hamilton,chpl,US,OH
+Hennepin County,hclib,US,MN
+Alameda County Library,aclibrary,US,CA
+Arapahoe Libraries,arapahoe,US,CO
+Aurora Public Library,aurora,CA,ON
+Barrie Public Library,barrie,CA,ON
+Boca Raton Public,boca,US,FL
+Burlington County,bclshj,US,NJ
+Burnaby Public Library,burnaby,CA,BC
+Canton Public Library,canton,US,MI
+Chandler Public Library,chandler,US,AZ
+CLEVNET,clevnet,US,OH
+Coquitlam Public,coqlibrary,CA,BC
+Contra Costa County,ccclib,US,CA
+Dayton Metro Library,dayton,US,OH
+Douglas County,dcl,US,CO
+Fraser Valley Regional,fvrl,CA,BC
+Fort Vancouver Regional,fvrlibraries,US,WA
+Guelph Public Library,guelph,CA,ON
+Halifax Public Libraries,halifax,CA,NS
+Idea Exchange,ideaexchange,CA,ON
+Kitsap Regional Library,kitsap,US,WA
+Oakland Public Library,oakland,US,CA
+Palm Beach County,pbclibrary,US,FL
+Santa Clara County,sccld,US,CA
+Christchurch City,christchurch,NZ,CAN
+Yarra Plenty Regional,yprl,AU,VIC
