@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Text, DateTime, func, text
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-
-Base = declarative_base()
+from .Base import Base
 
 class Book(Base):
     __tablename__ = "books"
