@@ -1,8 +1,11 @@
+import os
 from sqlalchemy.orm import Session
 import json
 import requests
 from ..repository.book_repository import BookRepository
+from ..repository.video_repository import VideoRepository
 from ..models.Book import Book
+from ..models.Video import Video
 from ..util.elevenlabs_client import ElevenLabsClient
 from ..util.gemini_client import GeminiClient
 from ..util.download import download_tiktok_audio
@@ -11,12 +14,15 @@ class GetBookService:
     
     def __init__(self):
         self.book_repo = BookRepository()
+        self.video_repo = VideoRepository()
         self.elevenlabs = ElevenLabsClient()
         self.gemini = GeminiClient()
     
     def get_book_from_tt(self, db: Session, link: str):
         """
         Extract book information from TikTok audio file and save to database.
+        Creates video record if it doesn't exist, and book record if it doesn't exist.
+        Deletes the audio file after processing.
         
         Args:
             db: SQLAlchemy database session
@@ -25,27 +31,56 @@ class GetBookService:
         Returns:
             Book object with extracted information
         """
+        audio_file_path = None
+        
         try:
-            # Step 1: Download and transcribe audio to text
-            print("downloading...")
-            audio_file_path = download_tiktok_audio(link)
-            print("downloaded!")
-            print("transcribing...")
-            transcribed_text = self.elevenlabs.transcribe(audio_file_path)
-            print("transcribed!")
+            # Check if video already exists
+            existing_video = self.video_repo.get_video_by_url(db, link)
             
-            if not transcribed_text:
-                raise Exception("Failed to transcribe audio")
+            if existing_video:
+                print(f"Video already exists: {link}")
+                transcript = existing_video.transcript
+            else:
+                # Download and transcribe
+                print("downloading...")
+                audio_file_path = download_tiktok_audio(link)
+                print("downloaded!")
+                print("transcribing...")
+                transcribed_text = self.elevenlabs.transcribe(audio_file_path)
+                print("transcribed!")
+                
+                if not transcribed_text:
+                    raise Exception("Failed to transcribe audio")
+                
+                transcript = transcribed_text
+                
+                # Create video record
+                video = Video(
+                    platform="tiktok",
+                    url=link,
+                    transcript=transcribed_text
+                )
+                self.video_repo.create_video(db, video)
+                print(f"Video saved: {link}")
             
-            print(f"Transcribed text: {transcribed_text}")
-            
-            # Step 2: Extract book info from transcribed text
-            book_data = self._extract_book_info(transcribed_text)
+            # Extract book info
+            book_data = self._extract_book_info(transcript)
             
             if not book_data:
                 raise Exception("Failed to extract book information")
             
-            # Step 3: Create Book object and save to database
+            # Check if book already exists
+            isbn = book_data.get("isbn")
+            existing_book = None
+            
+            if isbn and isbn != "Not found":
+                existing_book = self.book_repo.get_book_by_isbn(db, isbn)
+            
+            if existing_book:
+                print(f"Book already exists: {existing_book.title} by {existing_book.author}")
+                return existing_book
+            
+            # Create new book
             book = Book(
                 title=book_data.get("title"),
                 author=book_data.get("author"),
@@ -61,7 +96,17 @@ class GetBookService:
         
         except Exception as e:
             print(f"Error in get_book_from_tt: {e}")
+            db.rollback()
             return None
+        
+        finally:
+            # Delete the audio file if it was downloaded
+            if audio_file_path and os.path.exists(audio_file_path):
+                try:
+                    os.remove(audio_file_path)
+                    print(f"Audio file deleted: {audio_file_path}")
+                except Exception as e:
+                    print(f"Failed to delete audio file: {e}")
     
     def _extract_book_info(self, text: str):
         """

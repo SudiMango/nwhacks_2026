@@ -7,3 +7,6 @@ class BookRepository:
         db.add(book)
         db.commit()
         db.refresh(book)
+
+    def get_book_by_isbn(self, db: Session, isbn: str):
+        return db.query(Book).filter(Book.isbn == isbn).first()
