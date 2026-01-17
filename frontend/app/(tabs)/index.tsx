@@ -1,42 +1,21 @@
-import React, { useState, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Dimensions, useWindowDimensions } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mockBooks, mockLibraries, defaultRegion, Book } from '@/data/mockData';
-import { useBooks } from '@/context/BooksContext';
+import { Ionicons } from '@expo/vector-icons';
+import { mockLibraries, defaultRegion } from '@/data/mockData';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
-  const { addBook, isBookSaved } = useBooks();
-  const [selectedBook, setSelectedBook] = useState<Book>(mockBooks[0]);
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = ['25%', '50%'];
-
-  const handleAddBook = useCallback(() => {
-    addBook(selectedBook);
-  }, [selectedBook, addBook]);
-
-  const selectNextBook = useCallback(() => {
-    const currentIndex = mockBooks.findIndex((b) => b.id === selectedBook.id);
-    const nextIndex = (currentIndex + 1) % mockBooks.length;
-    setSelectedBook(mockBooks[nextIndex]);
-  }, [selectedBook]);
-
-  const isSaved = isBookSaved(selectedBook.id);
+  const { width } = useWindowDimensions();
+  const horizontalInset = Math.max(16, width * 0.07);
+  const bottomOffset = Math.max(12, width * 0.02);
+  const navEstimatedHeight = Math.max(72, width * 0.18);
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       {/* Floating Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.appName}>Bookmarked</Text>
@@ -65,73 +44,23 @@ export default function DiscoverScreen() {
         ))}
       </MapView>
 
-      {/* Bottom Sheet */}
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={0}
-        snapPoints={snapPoints}
-        backgroundStyle={styles.bottomSheetBackground}
-        handleIndicatorStyle={styles.handleIndicator}
+      {/* Search pill above nav */}
+      <View
+        style={[
+          styles.searchBar,
+          {
+            left: horizontalInset,
+            right: horizontalInset,
+            bottom: bottomOffset + navEstimatedHeight,
+          },
+        ]}
       >
-        <BottomSheetScrollView contentContainerStyle={styles.bottomSheetContent}>
-          {/* Book Card */}
-          <View style={styles.bookCard}>
-            <Image
-              source={{ uri: selectedBook.coverUrl }}
-              style={styles.bookCover}
-              resizeMode="cover"
-            />
-            <View style={styles.bookInfo}>
-              <Text style={styles.bookTitle}>{selectedBook.title}</Text>
-              <Text style={styles.bookAuthor}>{selectedBook.author}</Text>
-              <Text style={styles.tiktokSource}>
-                Found from BookTok video by {selectedBook.tiktokSource}
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.addButton,
-                  isSaved && styles.addButtonDisabled,
-                ]}
-                onPress={handleAddBook}
-                disabled={isSaved}
-              >
-                <Text style={styles.addButtonText}>
-                  {isSaved ? 'Added to My Books' : 'Add to My Books'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Next Book Button */}
-          <TouchableOpacity style={styles.nextButton} onPress={selectNextBook}>
-            <Text style={styles.nextButtonText}>See Another Book</Text>
-          </TouchableOpacity>
-
-          {/* Library Info */}
-          <View style={styles.libraryInfo}>
-            <Text style={styles.libraryInfoTitle}>Nearby Places</Text>
-            {mockLibraries.slice(0, 3).map((library) => (
-              <View key={library.id} style={styles.libraryItem}>
-                <View
-                  style={[
-                    styles.libraryDot,
-                    {
-                      backgroundColor:
-                        library.type === 'library' ? '#4A90A4' : '#E07A5F',
-                    },
-                  ]}
-                />
-                <Text style={styles.libraryName}>{library.name}</Text>
-                <Text style={styles.libraryType}>
-                  {library.type === 'library' ? 'Library' : 'Bookstore'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </BottomSheetScrollView>
-      </BottomSheet>
-    </GestureHandlerRootView>
+        <Text style={styles.searchText}>spots to cowork from</Text>
+        <View style={styles.searchIcon}>
+          <Ionicons name="search" size={18} color="#FFF" />
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -162,121 +91,35 @@ const styles = StyleSheet.create({
   },
   map: {
     width: '100%',
-    height: SCREEN_HEIGHT * 0.7,
-  },
-  bottomSheetBackground: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 16,
-  },
-  handleIndicator: {
-    backgroundColor: '#DDD',
-    width: 40,
-  },
-  bottomSheetContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  bookCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  bookCover: {
-    width: 100,
-    height: 150,
-    borderRadius: 8,
-    backgroundColor: '#E8E8E8',
-  },
-  bookInfo: {
+    height: SCREEN_HEIGHT,
     flex: 1,
-    marginLeft: 16,
-    justifyContent: 'center',
   },
-  bookTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1A2E',
-  },
-  bookAuthor: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  tiktokSource: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 12,
-    fontStyle: 'italic',
-  },
-  addButton: {
-    backgroundColor: '#4A90A4',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+  searchBar: {
+    position: 'absolute',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F1115',
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 14,
   },
-  addButtonDisabled: {
-    backgroundColor: '#B8C9CE',
-  },
-  addButtonText: {
+  searchText: {
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
   },
-  nextButton: {
-    marginTop: 16,
-    paddingVertical: 12,
+  searchIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 12,
-  },
-  nextButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  libraryInfo: {
-    marginTop: 24,
-  },
-  libraryInfoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A2E',
-    marginBottom: 12,
-  },
-  libraryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  libraryDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  libraryName: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-  },
-  libraryType: {
-    fontSize: 12,
-    color: '#888',
+    justifyContent: 'center',
   },
 });
