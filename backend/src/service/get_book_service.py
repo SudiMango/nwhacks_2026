@@ -21,7 +21,7 @@ class GetBookService:
     def get_book_from_tt(self, db: Session, link: str):
         """
         Extract book information from TikTok audio file and save to database.
-        Creates video record if it doesn't exist, and book record if it doesn't exist.
+        Creates video record if it doesn't exist, and book records if they don't exist.
         Deletes the audio file after processing.
         
         Args:
@@ -29,7 +29,7 @@ class GetBookService:
             link: TikTok video URL
         
         Returns:
-            Book object with extracted information
+            List of Book objects with extracted information
         """
         audio_file_path = None
         
@@ -63,41 +63,46 @@ class GetBookService:
                 self.video_repo.create_video(db, video)
                 print(f"Video saved: {link}")
             
-            # Extract book info
-            book_data = self._extract_book_info(transcript)
+            # Extract book info (can be multiple books)
+            books_data = self._extract_book_info(transcript)
             
-            if not book_data:
+            if not books_data or len(books_data) == 0:
                 raise Exception("Failed to extract book information")
             
-            # Check if book already exists
-            isbn = book_data.get("isbn")
-            existing_book = None
+            # Process each book
+            saved_books = []
             
-            if isbn and isbn != "Not found":
-                existing_book = self.book_repo.get_book_by_isbn(db, isbn)
+            for book_data in books_data:
+                # Check if book already exists
+                isbn = book_data.get("isbn")
+                existing_book = None
+                
+                if isbn and isbn != "Not found":
+                    existing_book = self.book_repo.get_book_by_isbn(db, isbn)
+                
+                if existing_book:
+                    print(f"Book already exists: {existing_book.title} by {existing_book.author}")
+                    saved_books.append(existing_book)
+                else:
+                    # Create new book
+                    book = Book(
+                        title=book_data.get("title"),
+                        author=book_data.get("author"),
+                        isbn=book_data.get("isbn"),
+                        cover_url=book_data.get("cover_url"),
+                        description=book_data.get("description")
+                    )
+                    
+                    self.book_repo.create_book(db, book)
+                    print(f"Book saved: {book.title} by {book.author}")
+                    saved_books.append(book)
             
-            if existing_book:
-                print(f"Book already exists: {existing_book.title} by {existing_book.author}")
-                return existing_book
-            
-            # Create new book
-            book = Book(
-                title=book_data.get("title"),
-                author=book_data.get("author"),
-                isbn=book_data.get("isbn"),
-                cover_url=book_data.get("cover_url"),
-                description=book_data.get("description")
-            )
-            
-            self.book_repo.create_book(db, book)
-            
-            print(f"Book saved: {book.title} by {book.author}")
-            return book
+            return saved_books
         
         except Exception as e:
             print(f"Error in get_book_from_tt: {e}")
             db.rollback()
-            return None
+            return []
         
         finally:
             # Delete the audio file if it was downloaded
@@ -110,29 +115,39 @@ class GetBookService:
     
     def _extract_book_info(self, text: str):
         """
-        Extract book title, author, ISBN, cover URL, and description from transcribed text.
+        Extract book titles, authors, ISBNs, cover URLs, and descriptions from transcribed text.
+        Can extract multiple books from a single transcript.
         
         Args:
             text: Transcribed text from audio
         
         Returns:
-            Dictionary with title, author, isbn, cover_url, and description
+            List of dictionaries with book information
         """
         try:
-            # Step 1: Use Gemini to extract title and author
+            # Step 1: Use Gemini to extract all books mentioned
             prompt = f"""
-            From the following text, extract the book title and author name.
-            If any information is not found, use "Not found" for that field.
-            
-            Return ONLY a valid JSON object with this exact format (no extra text):
+            From the following text, extract ALL books mentioned.
+
+            For each book:
+            1. Identify the book title.
+            2. Identify the author.
+            3. If the author or title is not explicitly stated in the text, use your general knowledge to infer the most likely correct information.
+            4. If after best-effort inference you are still unsure or cannot confidently determine the information, set the field value to "Not found".
+
+            Return ONLY a valid JSON array with this exact structure (no extra text, no explanations):
+
+            [
             {{
                 "title": "book title here",
                 "author": "author name here"
             }}
-            
+            ]
+
             Text to analyze:
             {text}
             """
+
             
             response = self.gemini.generate_content(prompt)
             response_text = response.strip()
@@ -143,25 +158,30 @@ class GetBookService:
                 if response_text.startswith('json'):
                     response_text = response_text[4:]
             
-            book_data = json.loads(response_text)
+            books_data = json.loads(response_text)
             
-            # Step 2: Search for ISBN, cover URL, and description online using Google Books API
-            title = book_data.get("title")
-            author = book_data.get("author")
+            # Ensure it's a list
+            if not isinstance(books_data, list):
+                books_data = [books_data]
             
-            isbn_data = self._find_isbn_online(title, author)
-            book_data["isbn"] = isbn_data.get("isbn")
-            book_data["cover_url"] = isbn_data.get("cover_url")
-            book_data["description"] = isbn_data.get("description")
+            # Step 2: Search for ISBN, cover URL, and description for each book
+            for book_data in books_data:
+                title = book_data.get("title")
+                author = book_data.get("author")
+                
+                isbn_data = self._find_isbn_online(title, author)
+                book_data["isbn"] = isbn_data.get("isbn")
+                book_data["cover_url"] = isbn_data.get("cover_url")
+                book_data["description"] = isbn_data.get("description")
             
-            return book_data
+            return books_data
         
         except json.JSONDecodeError as e:
             print(f"Failed to parse Gemini response: {e}")
-            return None
+            return []
         except Exception as e:
             print(f"Error extracting book info: {e}")
-            return None
+            return []
     
     def _find_isbn_online(self, title: str, author: str):
         """
