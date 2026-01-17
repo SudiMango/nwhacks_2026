@@ -27,7 +27,17 @@ export interface Library {
   latitude: number;
   longitude: number;
   type: 'library' | 'bookstore';
+  city?: 'vancouver' | 'richmond' | 'burnaby';
 }
+
+export interface MapRegion {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
+export type LocationKey = 'vancouver' | 'richmond' | 'burnaby';
 
 // Mock books from BookTok
 export const mockBooks: Book[] = [
@@ -97,14 +107,23 @@ export const mockCollectionBooks: Book[] = [
   },
 ];
 
-// Mock libraries near Vancouver (for nwHacks demo)
-export const mockLibraries: Library[] = [
+// Default region (Vancouver)
+export const defaultRegion: MapRegion = {
+  latitude: 49.2827,
+  longitude: -123.1207,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
+};
+
+// Mock libraries grouped by region (for nwHacks demo)
+const vancouverLibraries: Library[] = [
   {
     id: '1',
     name: 'Vancouver Public Library',
     latitude: 49.2799,
     longitude: -123.1156,
     type: 'library',
+    city: 'vancouver',
   },
   {
     id: '2',
@@ -112,6 +131,7 @@ export const mockLibraries: Library[] = [
     latitude: 49.2677,
     longitude: -123.2527,
     type: 'library',
+    city: 'vancouver',
   },
   {
     id: '3',
@@ -119,6 +139,7 @@ export const mockLibraries: Library[] = [
     latitude: 49.2838,
     longitude: -123.1187,
     type: 'bookstore',
+    city: 'vancouver',
   },
   {
     id: '4',
@@ -126,6 +147,7 @@ export const mockLibraries: Library[] = [
     latitude: 49.2634,
     longitude: -123.1015,
     type: 'bookstore',
+    city: 'vancouver',
   },
   {
     id: '5',
@@ -133,16 +155,113 @@ export const mockLibraries: Library[] = [
     latitude: 49.2656,
     longitude: -123.1614,
     type: 'library',
+    city: 'vancouver',
   },
 ];
 
-// Default region (Vancouver)
-export const defaultRegion = {
-  latitude: 49.2827,
-  longitude: -123.1207,
-  latitudeDelta: 0.0922,
-  longitudeDelta: 0.0421,
+const richmondLibraries: Library[] = [
+  {
+    id: 'r1',
+    name: 'Richmond Public Library - Brighouse',
+    latitude: 49.1666,
+    longitude: -123.1336,
+    type: 'library',
+    city: 'richmond',
+  },
+  {
+    id: 'r2',
+    name: 'Ironwood Library',
+    latitude: 49.1283,
+    longitude: -123.1156,
+    type: 'library',
+    city: 'richmond',
+  },
+  {
+    id: 'r3',
+    name: 'Richmond Public Library - Cambie',
+    latitude: 49.1649,
+    longitude: -123.1127,
+    type: 'library',
+    city: 'richmond',
+  },
+  {
+    id: 'r4',
+    name: 'Black Bond Books',
+    latitude: 49.1702,
+    longitude: -123.1376,
+    type: 'bookstore',
+    city: 'richmond',
+  },
+];
+
+const burnabyLibraries: Library[] = [
+  {
+    id: 'b1',
+    name: 'Metrotown Library',
+    latitude: 49.2276,
+    longitude: -123.0025,
+    type: 'library',
+    city: 'burnaby',
+  },
+  {
+    id: 'b2',
+    name: 'Tommy Douglas Library',
+    latitude: 49.2482,
+    longitude: -123.0205,
+    type: 'library',
+    city: 'burnaby',
+  },
+  {
+    id: 'b3',
+    name: 'Cameron Branch',
+    latitude: 49.2534,
+    longitude: -122.8931,
+    type: 'library',
+    city: 'burnaby',
+  },
+  {
+    id: 'b4',
+    name: 'Chapters Burnaby',
+    latitude: 49.2272,
+    longitude: -123.0066,
+    type: 'bookstore',
+    city: 'burnaby',
+  },
+];
+
+export const locationPresets: Record<
+  LocationKey,
+  { label: string; region: MapRegion; libraries: Library[] }
+> = {
+  vancouver: {
+    label: 'Vancouver',
+    region: defaultRegion,
+    libraries: vancouverLibraries,
+  },
+  richmond: {
+    label: 'Richmond',
+    region: {
+      latitude: 49.1666,
+      longitude: -123.1336,
+      latitudeDelta: 0.06,
+      longitudeDelta: 0.06,
+    },
+    libraries: richmondLibraries,
+  },
+  burnaby: {
+    label: 'Burnaby',
+    region: {
+      latitude: 49.2488,
+      longitude: -122.9805,
+      latitudeDelta: 0.06,
+      longitudeDelta: 0.06,
+    },
+    libraries: burnabyLibraries,
+  },
 };
+
+// Legacy export for screens that expect a simple list (defaults to Vancouver)
+export const mockLibraries: Library[] = vancouverLibraries;
 
 // Helper to get TikTok source for a book
 export function getTikTokSource(isbn: string): string | null {

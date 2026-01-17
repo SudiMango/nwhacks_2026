@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { mockLibraries, defaultRegion } from '@/data/mockData';
+import { locationPresets, LocationKey } from '@/data/mockData';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,6 +26,10 @@ export default function DiscoverScreen() {
   const bottomOffset = Math.max(insets.bottom + 10, width * 0.02); // safe-area aware gap above tab bar
   const [searchQuery, setSearchQuery] = useState('');
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [selectedLocation, setSelectedLocation] = useState<LocationKey>('vancouver');
+  const mapRef = useRef<MapView | null>(null);
+
+  const location = locationPresets[selectedLocation];
 
   useEffect(() => {
     const onShow = (e: any) => setKeyboardOffset(e.endCoordinates?.height ?? 0);
@@ -46,23 +50,57 @@ export default function DiscoverScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (mapRef.current && location?.region) {
+      mapRef.current.animateToRegion(location.region, 450);
+    }
+  }, [location]);
+
   return (
     <View style={styles.container}>
       {/* Floating Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Text style={styles.appName}>Bookmarked</Text>
         <Text style={styles.subtitle}>From BookTok to your shelf</Text>
+        <View style={styles.locationSelector}>
+          {Object.entries(locationPresets).map(([key, config]) => {
+            const isActive = key === selectedLocation;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.locationChip, isActive && styles.locationChipActive]}
+                onPress={() => setSelectedLocation(key as LocationKey)}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={14}
+                  color={isActive ? '#0F1115' : '#6B7280'}
+                />
+                <Text
+                  style={[
+                    styles.locationChipText,
+                    isActive && styles.locationChipTextActive,
+                  ]}
+                >
+                  {config.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* Map View */}
       <MapView
+        ref={mapRef}
         style={styles.map}
-        initialRegion={defaultRegion}
+        initialRegion={locationPresets.vancouver.region}
         provider={PROVIDER_DEFAULT}
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {mockLibraries.map((library) => (
+        {location.libraries.map((library) => (
           <Marker
             key={library.id}
             coordinate={{
@@ -132,6 +170,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
+  },
+  locationSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  locationChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locationChipActive: {
+    backgroundColor: '#E0ECF2',
+    borderColor: '#4A90A4',
+  },
+  locationChipText: {
+    marginLeft: 6,
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  locationChipTextActive: {
+    color: '#0F1115',
   },
   map: {
     width: '100%',
