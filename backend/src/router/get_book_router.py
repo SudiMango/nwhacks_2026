@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session
 from ..util.db import get_db
 from ..service.get_book_service import GetBookService
 from ..service.google_books_service import GoogleBooksService
+from ..service.library_service import LibraryService
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/get-book", tags=["book"])
+router = APIRouter(prefix="/books", tags=["book"])
 
 get_book_service = GetBookService()
 google_books_service = GoogleBooksService()
+library_service = LibraryService()
 
 class TikTokLinkRequest(BaseModel):
     tiktok_url: str
@@ -35,4 +37,29 @@ def search_books(
         "query": q,
         "count": len(books),
         "books": books
+    }
+
+@router.get("/find", summary="Find nearby libraries with book availability")
+async def find_book_at_libraries(
+    isbn: str = Query(..., description="Book ISBN"),
+    lat: float = Query(..., description="User's latitude"),
+    lng: float = Query(..., description="User's longitude"),
+    max_distance: float = Query(20.0, description="Maximum search distance in kilometers")
+):
+    """
+    Find nearby libraries and check book availability
+    
+    - **isbn**: Book ISBN (e.g., "9780358434733")
+    - **lat**: User's latitude
+    - **lng**: User's longitude
+    - **max_distance**: Maximum distance to search in km (default: 20)
+    
+    Returns a list of nearby libraries with availability status, holds, copies, etc.
+    """
+    libraries = await library_service.find_book_at_libraries(isbn, lat, lng, max_distance)
+    return {
+        "isbn": isbn,
+        "location": {"lat": lat, "lng": lng},
+        "count": len(libraries),
+        "libraries": libraries
     }

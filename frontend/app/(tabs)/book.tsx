@@ -55,9 +55,11 @@ export default function BookTab() {
         <View style={styles.bookInfo}>
           <Text style={styles.bookTitle}>{selectedBook.title}</Text>
           <Text style={styles.bookAuthor}>{selectedBook.author}</Text>
-          <Text style={styles.tiktokSource}>
-            Found from BookTok video by {selectedBook.tiktokSource}
-          </Text>
+          {(selectedBook as any).tiktokSource && (
+            <Text style={styles.tiktokSource}>
+              Found from BookTok video by {(selectedBook as any).tiktokSource}
+            </Text>
+          )}
 
           <TouchableOpacity
             style={[styles.addButton, isSaved && styles.addButtonDisabled]}

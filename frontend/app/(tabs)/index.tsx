@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,17 @@ import {
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { locationPresets, LocationKey, recommendedByGenre, Book } from '@/data/mockData';
 import { useBooks } from '@/context/BooksContext';
+import { useLocalSearchParams, router } from 'expo-router';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams();
   const { width } = useWindowDimensions();
   const horizontalInset = Math.max(16, width * 0.07);
   const navEstimatedHeight = Math.max(58, width * 0.14); // mirror tab bar height logic
@@ -33,6 +36,8 @@ export default function DiscoverScreen() {
   const [selectedLocation, setSelectedLocation] = useState<LocationKey>('vancouver');
   const mapRef = useRef<MapView | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [highlightedLibraries, setHighlightedLibraries] = useState<any[]>([]);
+  const [bookInfo, setBookInfo] = useState<{ title: string; author: string } | null>(null);
 
   const { addToTbr, isInTbr } = useBooks();
 
@@ -76,11 +81,53 @@ export default function DiscoverScreen() {
     };
   }, []);
 
+  // Extract specific param values to use as dependencies
+  const highlightLibrariesParam = params.highlightLibraries as string | undefined;
+  const bookTitleParam = params.bookTitle as string | undefined;
+  const bookAuthorParam = params.bookAuthor as string | undefined;
+  const centerLatParam = params.centerLat as string | undefined;
+  const centerLngParam = params.centerLng as string | undefined;
+  const searchIdParam = params.searchId as string | undefined; // Unique ID to force refresh
+
+  // Parse highlighted libraries from params
   useEffect(() => {
-    if (mapRef.current && location?.region) {
+    console.log('Search params changed, searchId:', searchIdParam);
+
+    if (highlightLibrariesParam) {
+      try {
+        const libraries = JSON.parse(highlightLibrariesParam);
+        console.log('Setting highlighted libraries:', libraries.length);
+        setHighlightedLibraries(libraries);
+        setBookInfo({
+          title: bookTitleParam || '',
+          author: bookAuthorParam || '',
+        });
+
+        // Center map on user location if provided
+        if (centerLatParam && centerLngParam && mapRef.current) {
+          const lat = parseFloat(centerLatParam);
+          const lng = parseFloat(centerLngParam);
+          mapRef.current.animateToRegion({
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          }, 500);
+        }
+      } catch (e) {
+        console.error('Error parsing library data:', e);
+      }
+    } else {
+      setHighlightedLibraries([]);
+      setBookInfo(null);
+    }
+  }, [highlightLibrariesParam, bookTitleParam, bookAuthorParam, centerLatParam, centerLngParam, searchIdParam]);
+
+  useEffect(() => {
+    if (mapRef.current && location?.region && highlightedLibraries.length === 0) {
       mapRef.current.animateToRegion(location.region, 450);
     }
-  }, [location]);
+  }, [location, highlightedLibraries]);
 
   const handleAddToTbr = (book: Book) => {
     addToTbr(book);
@@ -88,6 +135,28 @@ export default function DiscoverScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Book Search Banner */}
+      {bookInfo && highlightedLibraries.length > 0 && (
+        <View style={styles.searchBanner}>
+          <View style={styles.searchBannerContent}>
+            <Ionicons name="book" size={20} color="#4A90A4" />
+            <View style={styles.searchBannerText}>
+              <Text style={styles.searchBannerTitle}>Finding: {bookInfo.title}</Text>
+              <Text style={styles.searchBannerSubtitle}>by {bookInfo.author}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setHighlightedLibraries([]);
+                setBookInfo(null);
+              }}
+              style={styles.searchBannerClose}
+            >
+              <Ionicons name="close" size={20} color="#666" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      
       {/* Map View */}
       <MapView
         ref={mapRef}
@@ -97,18 +166,63 @@ export default function DiscoverScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {location.libraries.map((library) => (
-          <Marker
-            key={library.id}
-            coordinate={{
-              latitude: library.latitude,
-              longitude: library.longitude,
-            }}
-            title={library.name}
-            description={library.type === 'library' ? 'Public Library' : 'Bookstore'}
-            pinColor={library.type === 'library' ? '#4A90A4' : '#E07A5F'}
-          />
-        ))}
+        {/* Show highlighted libraries if available, otherwise show all libraries */}
+        {(highlightedLibraries.length > 0 ? highlightedLibraries : location.libraries).map((library) => {
+          const isHighlighted = highlightedLibraries.length > 0;
+          const isAvailable = library.is_available === true;
+          const availableAtBranch = library.available_at_this_branch === true;
+          const notInCatalog = library.not_found === true;
+
+          // Determine colors and icon
+          let bgColor = '#4A90A4'; // Default blue for libraries
+          let iconName: keyof typeof Ionicons.glyphMap = 'library';
+          let statusText = '';
+
+          if (isHighlighted) {
+            if (availableAtBranch) {
+              bgColor = '#10B981'; // Green - available here
+              iconName = 'checkmark-circle';
+              statusText = `Available (${library.copies || 0} copies)`;
+            } else if (isAvailable) {
+              bgColor = '#F59E0B'; // Orange - available elsewhere
+              iconName = 'time';
+              statusText = `At other branches`;
+            } else if (notInCatalog) {
+              bgColor = '#9CA3AF'; // Gray - not in catalog
+              iconName = 'help-circle';
+              statusText = 'Not in catalog';
+            } else {
+              bgColor = '#EF4444'; // Red - not available
+              iconName = 'close-circle';
+              statusText = `${library.holds || 0} holds`;
+            }
+          }
+
+          // Build description
+          let description = library.type === 'library' ? 'Public Library' : 'Bookstore';
+          if (isHighlighted && statusText) {
+            description = statusText;
+          }
+
+          return (
+            <Marker
+              key={library.id}
+              coordinate={{
+                latitude: library.latitude,
+                longitude: library.longitude,
+              }}
+              title={library.name}
+              description={description}
+            >
+              <View style={[styles.customMarker, { backgroundColor: bgColor }]}>
+                <Ionicons name={iconName} size={18} color="#FFF" />
+              </View>
+              {isHighlighted && availableAtBranch && (
+                <View style={styles.markerPulse} />
+              )}
+            </Marker>
+          );
+        })}
       </MapView>
 
       {/* Genre quick picks above search */}
@@ -244,6 +358,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+  searchBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    backgroundColor: '#FFF',
+    paddingTop: 50,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  searchBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchBannerText: {
+    flex: 1,
+  },
+  searchBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A2E',
+  },
+  searchBannerSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  searchBannerClose: {
+    padding: 4,
+  },
   header: {
     position: 'absolute',
     top: 0,
@@ -302,6 +455,29 @@ const styles = StyleSheet.create({
     width: '100%',
     height: SCREEN_HEIGHT,
     flex: 1,
+  },
+  customMarker: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  markerPulse: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    top: -7,
+    left: -7,
   },
   searchBar: {
     position: 'absolute',
