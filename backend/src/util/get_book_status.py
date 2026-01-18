@@ -1,4 +1,5 @@
 import asyncio
+import os
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from bs4 import BeautifulSoup
 
@@ -65,10 +66,9 @@ def parse_available_locations(html: str):
 # Main pipeline
 # ----------------------------
 
-async def get_book_status(library_id: str, isbn: str):
+async def _fetch_book_status(library_id: str, isbn: str):
     """
-    Get book availability status from bibliocommons.
-    Returns quickly if book not found (within 3-4 seconds).
+    Internal async implementation for fetching availability with Playwright.
     """
     library_id = library_id.lower()
 
@@ -214,6 +214,28 @@ async def get_book_status(library_id: str, isbn: str):
             except:
                 pass
         raise
+
+
+async def get_book_status(library_id: str, isbn: str):
+    """
+    Get book availability status from bibliocommons.
+    Returns quickly if book not found (within 3-4 seconds).
+
+    On Windows, Playwright requires a Proactor event loop for subprocesses.
+    The main app uses Selector loop for psycopg; so we offload Playwright work
+    to a background thread with a Proactor policy to avoid NotImplementedError.
+    """
+    # On Windows, always offload Playwright to a background thread with a Proactor loop
+    if os.name == "nt":
+        def runner():
+            # Switch to Proactor for this thread only
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+            return asyncio.run(_fetch_book_status(library_id, isbn))
+
+        return await asyncio.to_thread(runner)
+
+    # Non-Windows or already on a Proactor-capable loop
+    return await _fetch_book_status(library_id, isbn)
 
 
 # ----------------------------
