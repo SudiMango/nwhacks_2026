@@ -123,7 +123,7 @@ export default function PostsScreen() {
                 style={{ flex: 1 }}
                 contentContainerStyle={[
                     styles.content,
-                    { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 40 },
+                    { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 120 },
                 ]}
                 showsVerticalScrollIndicator={false}
             >
@@ -140,7 +140,6 @@ export default function PostsScreen() {
                         activeOpacity={0.85}
                     >
                         <Ionicons name="add" size={18} color="#FFF" />
-                        <Text style={styles.createButtonText}>New Post</Text>
                     </TouchableOpacity>
                 </View>
 
