@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 import { useAuth } from '@/context/AuthContext';
 import { genres } from '@/data/genres';
@@ -95,6 +96,24 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{displayName}</Text>
         <Text style={styles.username}>@{username}</Text>
       </View>
+
+      {/* Create Post CTA */}
+      <TouchableOpacity
+        style={styles.createPostCard}
+        activeOpacity={0.85}
+        onPress={() => router.push('/create-post')}
+      >
+        <View style={styles.createPostLeft}>
+          <Ionicons name="create-outline" size={20} color="#0F172A" />
+          <View>
+            <Text style={styles.createPostTitle}>Share a post</Text>
+            <Text style={styles.createPostSubtitle}>
+              Drop a quick review for the community feed.
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+      </TouchableOpacity>
 
       {/* Last Book Read Section */}
       <View style={styles.section}>
@@ -361,6 +380,36 @@ const styles = StyleSheet.create({
   },
   genresDisplay: {
     marginTop: -4,
+  },
+  createPostCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  createPostLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  createPostTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  createPostSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
   },
   genreTagsContainer: {
     flexDirection: 'row',

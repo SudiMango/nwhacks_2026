@@ -10,6 +10,11 @@ class BookRepository:
     def get_by_id(self, db: Session, book_id: UUID) -> Optional[Book]:
         return db.query(Book).filter(Book.book_id == book_id).first()
 
+    def get_by_ids(self, db: Session, book_ids: List[UUID]) -> List[Book]:
+        if not book_ids:
+            return []
+        return db.query(Book).filter(Book.book_id.in_(book_ids)).all()
+
     def create_book(self, db: Session, book: Book) -> Book:
         db.add(book)
         db.commit()

@@ -21,12 +21,13 @@ export default function RootLayout() {
                     value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
                 >
                     <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen
+                    <Stack.Screen
                             name="(auth)"
                             options={{ gestureEnabled: false }}
                         />
                         <Stack.Screen name="(onboarding)" />
                         <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="create-post" />
                         <Stack.Screen
                             name="modal"
                             options={{ presentation: "modal", title: "Modal" }}
