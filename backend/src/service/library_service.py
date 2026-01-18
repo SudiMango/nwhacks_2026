@@ -426,7 +426,7 @@ async def check_book_availability(library_id: str, isbn: str) -> Optional[Dict]:
 
 class LibraryService:
     async def find_book_at_libraries(
-        self, isbn: str, latitude: float, longitude: float, max_distance_km: float = 15
+        self, isbn: str, latitude: float, longitude: float, max_distance_km: float = 12.5
     ) -> List[Dict]:
         """
         Find nearby libraries and check book availability
@@ -435,7 +435,7 @@ class LibraryService:
             isbn: Book ISBN
             latitude: User's latitude
             longitude: User's longitude
-            max_distance_km: Maximum distance to search (default: 15 km)
+            max_distance_km: Maximum distance to search (default: 20km)
 
         Returns:
             List of libraries with availability information
@@ -461,25 +461,25 @@ class LibraryService:
         # Check availability for each unique bibliocommons library system in parallel
         availability_tasks = {
             library_id: asyncio.create_task(
-                asyncio.wait_for(check_book_availability(library_id, cleaned_isbn), timeout=50.0)
+                asyncio.wait_for(check_book_availability(library_id, cleaned_isbn), timeout=8.0)
             )
             for library_id in library_groups.keys()
         }
 
+        # Wait for all availability checks concurrently
         availability_results: Dict[str, Optional[Dict]] = {}
-        done, pending = await asyncio.wait(availability_tasks.values(), timeout=50)
+        done, pending = await asyncio.wait(availability_tasks.values())
         for task in pending:
             task.cancel()
 
         for library_id, task in availability_tasks.items():
             if task in done:
                 try:
-                    availability_results[library_id] = await task
+                    availability_results[library_id] = task.result()
                 except Exception as e:
                     print(f"Failed to get availability for {library_id}: {e}")
                     availability_results[library_id] = None
             else:
-                print(f"Availability check timed out for {library_id}")
                 availability_results[library_id] = None
 
         # Build results for each branch
@@ -513,15 +513,14 @@ class LibraryService:
                         "available_at_this_branch": is_available_here,
                     })
                 else:
-                    # Unknown availability (timeout/error) should be marked as such, not unavailable
                     result.update({
-                        "is_available": None,
+                        "is_available": False,
                         "available_locations": [],
-                        "holds": None,
-                        "copies": None,
-                        "on_order": None,
-                        "status_text": "Availability check timed out or failed",
-                        "available_at_this_branch": None,
+                        "holds": 0,
+                        "copies": 0,
+                        "on_order": 0,
+                        "status_text": "Could not check availability",
+                        "available_at_this_branch": False,
                         "error": True,
                     })
 
