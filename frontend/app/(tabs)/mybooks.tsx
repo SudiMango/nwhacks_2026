@@ -21,7 +21,8 @@ import { router } from 'expo-router';
 import { useBooks } from '@/context/BooksContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Book } from '@/data/mockData';
-import { submitTikTokUrl, isValidTikTokUrl, searchBooks } from '@/services/api';
+import { submitTikTokUrl, isValidTikTokUrl, searchBooks, findBookLibraries } from '@/services/api';
+import * as Location from 'expo-location';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -197,11 +198,74 @@ export default function MyBooksScreen() {
   const hasBooks = tbrBooks.length > 0 || collectionBooks.length > 0;
   const hasFilteredBooks = filteredTbrBooks.length > 0 || filteredCollectionBooks.length > 0 || googleBooksResults.length > 0;
 
-  const handleFindOnMap = useCallback(() => {
-    setSelectedBook(null);
-    setSelectedSource(null);
-    router.push('/(tabs)');
-  }, []);
+  const handleFindOnMap = useCallback(async () => {
+    if (!selectedBook) return;
+
+    try {
+      setIsLoading(true);
+
+      // Get user's current location
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to find nearby libraries.');
+        setIsLoading(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      let { latitude, longitude } = location.coords;
+
+      // Check if we got the iOS Simulator default location (San Francisco)
+      const isSimulatorDefault =
+        Math.abs(latitude - 37.785834) < 0.001 &&
+        Math.abs(longitude - (-122.406417)) < 0.001;
+
+      if (isSimulatorDefault) {
+        // Use Vancouver as fallback for simulator
+        console.log('Detected simulator default location, using Vancouver');
+        latitude = 49.2827;
+        longitude = -123.1207;
+      }
+
+      console.log(`Finding libraries at: lat=${latitude}, lng=${longitude}`);
+
+      // Find libraries with book availability
+      const result = await findBookLibraries(selectedBook.isbn, latitude, longitude);
+
+      if (!result.libraries || result.libraries.length === 0) {
+        Alert.alert(
+          'No Libraries Found',
+          'No libraries found within 20km. Try expanding your search area.',
+          [{ text: 'OK' }]
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Navigate to map with library data
+      // Add timestamp to force refresh even when searching same book twice
+      router.push({
+        pathname: '/(tabs)',
+        params: {
+          highlightLibraries: JSON.stringify(result.libraries || []),
+          bookTitle: selectedBook.title,
+          bookAuthor: selectedBook.author,
+          centerLat: latitude.toString(),
+          centerLng: longitude.toString(),
+          searchId: Date.now().toString(), // Forces useEffect to re-run
+        },
+      });
+
+      setSelectedBook(null);
+    } catch (error: any) {
+      console.error('Error finding libraries:', error);
+      Alert.alert('Error', 'Failed to find libraries. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedBook]);
 
   const handleMarkRead = useCallback(() => {
     if (!selectedBook) return;
@@ -450,8 +514,19 @@ export default function MyBooksScreen() {
         )}
       </ScrollView>
 
+      {/* Loading overlay for Find */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#4A90A4" />
+            <Text style={styles.loadingTitle}>Finding Libraries...</Text>
+            <Text style={styles.loadingSubtitle}>Checking availability nearby</Text>
+          </View>
+        </View>
+      )}
+
       {/* Quick book preview overlay */}
-      {selectedBook && (
+      {selectedBook && !isLoading && (
         <View style={styles.overlay}>
           <TouchableOpacity
             style={styles.overlayBack}
@@ -915,5 +990,39 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     gap: 8,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  loadingCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 15,
+    minWidth: 200,
+  },
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginTop: 16,
+  },
+  loadingSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
   },
 });

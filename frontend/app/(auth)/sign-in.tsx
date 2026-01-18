@@ -32,7 +32,7 @@ export default function SignInScreen() {
 
     try {
       await signIn(email, password);
-      router.replace('/(onboarding)/name');
+      // Navigation handled by auth state change
     } catch (error) {
       Alert.alert('Error', 'Failed to sign in. Please try again.');
     }

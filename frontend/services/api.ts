@@ -175,6 +175,41 @@ export async function searchBooks(query: string, maxResults: number = 20): Promi
 }
 
 /**
+ * Find nearby libraries with book availability
+ */
+export async function findBookLibraries(
+  isbn: string,
+  latitude: number,
+  longitude: number,
+  maxDistance: number = 15
+): Promise<any> {
+  try {
+    const url = `${API_BASE_URL}/books/find?isbn=${encodeURIComponent(isbn)}&lat=${latitude}&lng=${longitude}&max_distance=${maxDistance}`;
+    console.log('Finding libraries at:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Find libraries response error:', response.status, errorText);
+      throw new Error(`Failed to find libraries: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Find libraries response:', data);
+    return data;
+  } catch (error: any) {
+    console.error('Error finding libraries:', error);
+    throw error;
+  }
+}
+
+/**
  * Validate if a URL is a valid TikTok URL
  */
 export function isValidTikTokUrl(url: string): boolean {
