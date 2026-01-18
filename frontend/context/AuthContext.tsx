@@ -20,6 +20,7 @@ export interface UserProfile {
     readingFormat: "library" | "ebook" | "both" | null;
     lastBookRead: string;
     onboardingCompleted: boolean;
+    createdAt?: string;
 }
 
 interface AuthContextType {

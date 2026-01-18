@@ -109,7 +109,7 @@ export default function BookTab() {
                 style={styles.container}
                 contentContainerStyle={[
                     styles.scrollContent,
-                    { paddingTop: insets.top + 20 },
+                    { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 120 },
                 ]}
                 showsVerticalScrollIndicator={false}
             >
@@ -169,11 +169,6 @@ export default function BookTab() {
                                     <Text style={styles.closeText}>✕</Text>
                                 </TouchableOpacity>
                             </View>
-                            {selectedBook.description ? (
-                                <Text style={styles.previewDescription}>
-                                    {selectedBook.description}
-                                </Text>
-                            ) : null}
                             <View style={styles.previewActions}>
                                 <TouchableOpacity
                                     style={[
@@ -199,6 +194,11 @@ export default function BookTab() {
                                     </Text>
                                 </TouchableOpacity>
                             </View>
+                            {selectedBook.description ? (
+                                <Text style={styles.previewDescription}>
+                                    {selectedBook.description}
+                                </Text>
+                            ) : null}
                         </ScrollView>
                     </View>
                 </View>

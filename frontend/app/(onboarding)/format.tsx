@@ -4,6 +4,8 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -46,7 +48,7 @@ export default function OnboardingFormatScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <Pressable style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]} onPress={Keyboard.dismiss}>
       {/* Skip Button */}
       <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
         <Text style={styles.skipText}>Skip</Text>
@@ -102,7 +104,7 @@ export default function OnboardingFormatScreen() {
         <Text style={styles.continueButtonText}>Continue</Text>
         <Ionicons name="arrow-forward" size={20} color="#FFF" />
       </TouchableOpacity>
-    </View>
+    </Pressable>
   );
 }
 

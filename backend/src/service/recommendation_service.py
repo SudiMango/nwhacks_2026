@@ -1,5 +1,6 @@
 import json
 from typing import List, Dict
+from fastapi import HTTPException, status
 
 from sqlalchemy.orm import Session
 
@@ -115,6 +116,42 @@ class RecommendationService:
             results.append(book)
 
         return results
+
+    def _existing_recommendations(self, db: Session, user_id) -> List[Book]:
+        recs = self.rec_repo.list_for_user(db, user_id)
+        if not recs:
+            return []
+
+        book_ids = [rec.book_id for rec in recs]
+        books = self.book_repo.get_by_ids(db, book_ids)
+        if not books:
+            return []
+
+        book_map = {book.book_id: book for book in books}
+        return [book_map[book_id] for book_id in book_ids if book_id in book_map]
+
+    def get_or_generate(self, db: Session, user, count: int = 8) -> List[Book]:
+        """
+        Return cached recommendations for a user if they exist; otherwise generate, store, and return.
+        Requires onboarding to be completed before generating.
+        """
+        if not getattr(user, "onboarding_completed", False):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Complete onboarding to receive recommendations.",
+            )
+
+        existing = self._existing_recommendations(db, user.user_id)
+        if existing:
+            return existing
+
+        return self.generate_and_store(
+            db,
+            user.user_id,
+            user.favorite_genres or [],
+            user.last_book_read or "",
+            count=count,
+        )
 
     def recommend_from_query(
         self,
