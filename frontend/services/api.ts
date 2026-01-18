@@ -252,3 +252,57 @@ export function isValidTikTokUrl(url: string): boolean {
 
     return tiktokPatterns.some((pattern) => pattern.test(url));
 }
+
+export interface RecommendedBook {
+    id: string | null;
+    title: string;
+    author: string;
+    description: string;
+    cover_url: string;
+    isbn: string | null;
+    page_count: number | null;
+    published_date: string;
+    categories?: string[];
+    recommended_title?: string;
+    recommended_author?: string;
+    not_found_on_google_books?: boolean;
+}
+
+/**
+ * Get AI-powered book recommendations based on a natural language query
+ */
+export async function getBookRecommendations(
+    query: string,
+    favoriteGenres?: string[],
+    recentBooks?: string[],
+    count: number = 5
+): Promise<RecommendedBook[]> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/get-book/recommend`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                query,
+                favorite_genres: favoriteGenres,
+                recent_books: recentBooks,
+                count,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Recommend books error:", response.status, errorText);
+            throw new Error(`Failed to get recommendations: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Recommendations response:", data);
+
+        return data.books || [];
+    } catch (error: any) {
+        console.error("Error getting recommendations:", error);
+        throw error;
+    }
+}
