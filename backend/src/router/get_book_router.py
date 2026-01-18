@@ -19,9 +19,11 @@ library_service = LibraryService()
 class TikTokLinkRequest(BaseModel):
     tiktok_url: str
 
-@router.get("/from-tiktok")
+@router.post("/from-tiktok")
 def get_book_from_tt(request: TikTokLinkRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return get_book_service.get_book_from_tt(db, request.tiktok_url, current_user.user_id)
+    books = get_book_service.get_book_from_tt(db, request.tiktok_url, current_user.user_id)
+    print(books)
+    return {"books": books}
 
 @router.get("/search", summary="Search books by name using Google Books API")
 def search_books(

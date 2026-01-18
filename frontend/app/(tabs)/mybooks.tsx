@@ -96,6 +96,7 @@ export default function MyBooksScreen() {
         addToTbr,
         searchQuery,
         setSearchQuery,
+        fetchMyBooks,
     } = useBooks();
 
     // TikTok URL input state
@@ -106,6 +107,7 @@ export default function MyBooksScreen() {
     const [selectedSource, setSelectedSource] = useState<
         "tbr" | "collection" | null
     >(null);
+    const [dott, setdott] = useState<boolean>(false);
 
     // Google Books search results
     const [googleBooksResults, setGoogleBooksResults] = useState<Book[]>([]);
@@ -132,6 +134,7 @@ export default function MyBooksScreen() {
         }
 
         Keyboard.dismiss();
+        setdott(true);
         setIsLoading(true);
 
         try {
@@ -139,13 +142,13 @@ export default function MyBooksScreen() {
 
             if (response.books && response.books.length > 0) {
                 // Add all books to TBR
-                response.books.forEach((book) => addToTbr(book));
                 Alert.alert(
                     "Success!",
                     `Added ${response.books.length} book(s) to your TBR from this TikTok!`
                 );
                 setTiktokUrl("");
                 setShowTiktokInput(false);
+                fetchMyBooks();
             } else {
                 Alert.alert(
                     "No Books Found",
@@ -161,6 +164,7 @@ export default function MyBooksScreen() {
             );
         } finally {
             setIsLoading(false);
+            setdott(false);
         }
     }, [tiktokUrl, addToTbr]);
 
@@ -661,15 +665,18 @@ export default function MyBooksScreen() {
             </ScrollView>
 
             {/* Loading overlay for Find */}
+            {/* Loading overlay for Find or TikTok Submit */}
             {isLoading && (
                 <View style={styles.loadingOverlay}>
                     <View style={styles.loadingCard}>
                         <ActivityIndicator size="large" color="#4A90A4" />
                         <Text style={styles.loadingTitle}>
-                            Finding Libraries...
+                            {dott ? "Adding Books..." : "Finding Libraries..."}
                         </Text>
                         <Text style={styles.loadingSubtitle}>
-                            Checking availability nearby
+                            {dott
+                                ? "Processing TikTok video"
+                                : "Checking availability nearby"}
                         </Text>
                     </View>
                 </View>

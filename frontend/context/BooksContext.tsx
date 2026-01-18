@@ -29,6 +29,7 @@ interface BooksContextType {
 
     // Loading state
     isLoading: boolean;
+    fetchMyBooks: () => void;
 }
 
 const BooksContext = createContext<BooksContextType | undefined>(undefined);
@@ -39,13 +40,6 @@ export function BooksProvider({ children }: { children: ReactNode }) {
         useState<Book[]>(mockCollectionBooks);
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
-
-    // Fetch user's books whenever tab is focused
-    useFocusEffect(
-        React.useCallback(() => {
-            fetchMyBooks();
-        }, [])
-    );
 
     const fetchMyBooks = async () => {
         console.log("loading books mine...");
@@ -72,6 +66,11 @@ export function BooksProvider({ children }: { children: ReactNode }) {
             setIsLoading(false);
         }
     };
+
+    // Fetch user's books whenever tab is focused
+    useEffect(() => {
+        fetchMyBooks();
+    }, []);
 
     // TBR functions
     const addToTbr = (book: Book) => {
@@ -132,6 +131,7 @@ export function BooksProvider({ children }: { children: ReactNode }) {
                 searchQuery,
                 setSearchQuery,
                 isLoading,
+                fetchMyBooks,
             }}
         >
             {children}
