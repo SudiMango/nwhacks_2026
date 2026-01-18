@@ -16,13 +16,12 @@ class User(Base):
 
     user_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     email = Column(Text, nullable=False, unique=True)
+    password = Column(Text, nullable=False)
     name = Column(Text, nullable=True)
 
     favorite_genres = Column(ARRAY(Text), nullable=True)
     reading_format = Column(Text, nullable=True)
     last_book_read = Column(Text, nullable=True)
-    
-    reccomended_books = Column(ARRAY(Text), nullable=True)
 
     onboarding_completed = Column(Boolean, nullable=False, default=False)
 
