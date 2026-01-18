@@ -12,13 +12,13 @@ const BACKEND_URL = "http://172.20.10.8:8000";
 const TOKEN_KEY = "auth_token";
 
 export interface UserProfile {
-    id: string;
-    email: string;
-    name: string;
-    favoriteGenres: string[];
-    readingFormat: "library" | "ebook" | "both" | null;
-    lastBookRead: string;
-    onboardingCompleted: boolean;
+  id: string;
+  email: string;
+  name: string;
+  favoriteGenres: string[];
+  readingFormat: 'library' | 'ebook' | 'both' | null;
+  lastBookRead: string;
+  onboardingCompleted: boolean;
 }
 
 interface AuthContextType {
@@ -225,9 +225,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context)
-        throw new Error("useAuth must be used within an AuthProvider");
-    return context;
-};
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
+}

@@ -38,3 +38,10 @@ class UserService:
   def set_name(self, db: Session, user_id: UUID, name: str):
     user = self._get_user_or_404(db, user_id)
     return self.user_repo.set_name(db, user, name)
+
+  def get_user(self, db: Session, user_id: UUID):
+    return self._get_user_or_404(db, user_id)
+
+  def save_recommendations(self, db: Session, user_id: UUID, recommendations: List[str]):
+    user = self._get_user_or_404(db, user_id)
+    return self.user_repo.save_recommendations(db, user, recommendations)

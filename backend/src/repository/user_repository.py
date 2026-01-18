@@ -47,6 +47,12 @@ class UserRepository:
         db.commit()
         db.refresh(user)
         return user
+    
+    def save_recommendations(self, db: Session, user: User, recommendations: List[str]) -> User:
+        user.reccomended_books = recommendations
+        db.commit()
+        db.refresh(user)
+        return user
   
     def find_by_email(self, db: Session, email: str) -> Optional[User]:
         return db.query(User).filter(User.email == email).first()

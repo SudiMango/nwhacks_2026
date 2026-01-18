@@ -41,12 +41,13 @@ def search_books(
         "books": books
     }
 
+
 @router.get("/find", summary="Find nearby libraries with book availability")
 async def find_book_at_libraries(
     isbn: str = Query(..., description="Book ISBN"),
     lat: float = Query(..., description="User's latitude"),
     lng: float = Query(..., description="User's longitude"),
-    max_distance: float = Query(20.0, description="Maximum search distance in kilometers")
+    max_distance: float = Query(15, description="Maximum search distance in kilometers")
 ):
     """
     Find nearby libraries and check book availability

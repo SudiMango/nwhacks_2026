@@ -129,6 +129,23 @@ export default function DiscoverScreen() {
     }
   }, [location, highlightedLibraries]);
 
+  useEffect(() => {
+    if (mapRef.current && highlightedLibraries.length > 0) {
+      const coords = highlightedLibraries
+        .filter((lib) => typeof lib.latitude === 'number' && typeof lib.longitude === 'number')
+        .map((lib) => ({
+          latitude: lib.latitude,
+          longitude: lib.longitude,
+        }));
+      if (coords.length > 0) {
+        mapRef.current.fitToCoordinates(coords, {
+          edgePadding: { top: 80, bottom: 200, left: 80, right: 80 },
+          animated: true,
+        });
+      }
+    }
+  }, [highlightedLibraries]);
+
   const handleAddToTbr = (book: Book) => {
     addToTbr(book);
   };
