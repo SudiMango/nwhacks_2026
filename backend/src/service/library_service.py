@@ -461,28 +461,24 @@ class LibraryService:
         # Check availability for each unique bibliocommons library system in parallel
         # Timeout is 25s since get_book_status now fails fast (~5s) for books not in catalog
         # Successful scrapes need 15-20s to complete (search -> record page -> availability)
-        availability_tasks = {
-            library_id: asyncio.create_task(
-                asyncio.wait_for(check_book_availability(library_id, cleaned_isbn), timeout=25.0)
-            )
-            for library_id in library_groups.keys()
-        }
-
-        # Wait for all availability checks concurrently
+        # Use gather + semaphore to avoid too many concurrent Playwright launches
         availability_results: Dict[str, Optional[Dict]] = {}
-        done, pending = await asyncio.wait(availability_tasks.values())
-        for task in pending:
-            task.cancel()
+        semaphore = asyncio.Semaphore(5)
 
-        for library_id, task in availability_tasks.items():
-            if task in done:
+        async def run_check(lib_id: str):
+            async with semaphore:
                 try:
-                    availability_results[library_id] = task.result()
+                    return lib_id, await asyncio.wait_for(
+                        check_book_availability(lib_id, cleaned_isbn),
+                        timeout=25.0,
+                    )
                 except Exception as e:
-                    print(f"Failed to get availability for {library_id}: {e}")
-                    availability_results[library_id] = None
-            else:
-                availability_results[library_id] = None
+                    print(f"Failed to get availability for {lib_id}: {e}")
+                    return lib_id, None
+
+        tasks = [run_check(library_id) for library_id in library_groups.keys()]
+        for lib_id, result in await asyncio.gather(*tasks):
+            availability_results[lib_id] = result
 
         # Build results for each branch
         results = []
