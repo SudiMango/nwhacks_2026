@@ -13,14 +13,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { updateLastBookRead } from '@/services/api';
 
 export default function OnboardingLastBookScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ name: string; genres: string; formats: string }>();
   const { completeOnboarding, isLoading } = useAuth();
+  const { user } = useAuth();
   const [lastBook, setLastBook] = useState('');
 
   const handleFinish = async () => {
+    await maybePersistLastBook(lastBook.trim());
     await completeOnboarding({
       name: params.name || 'Reader',
       favoriteGenres: params.genres ? params.genres.split(',') : [],
@@ -35,6 +38,7 @@ export default function OnboardingLastBookScreen() {
   };
 
   const handleSkip = async () => {
+    await maybePersistLastBook('');
     await completeOnboarding({
       name: params.name || 'Reader',
       favoriteGenres: params.genres ? params.genres.split(',') : [],
@@ -46,6 +50,16 @@ export default function OnboardingLastBookScreen() {
       lastBookRead: '',
     });
     router.replace('/(tabs)');
+  };
+
+  const maybePersistLastBook = async (bookName: string) => {
+    try {
+      if (user?.id) {
+        await updateLastBookRead(user.id, bookName);
+      }
+    } catch (error) {
+      console.warn('Failed to save last book read', error);
+    }
   };
 
   return (

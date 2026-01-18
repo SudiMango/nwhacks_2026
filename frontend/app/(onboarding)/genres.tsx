@@ -10,11 +10,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { genres } from '@/data/genres';
+import { updateFavoriteGenres } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function OnboardingGenresScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ name: string }>();
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const { user } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
 
   const toggleGenre = (genreId: string) => {
     setSelectedGenres((prev) =>
@@ -24,11 +28,21 @@ export default function OnboardingGenresScreen() {
     );
   };
 
-  const handleContinue = () => {
-    router.push({
-      pathname: '/(onboarding)/format',
-      params: { name: params.name, genres: selectedGenres.join(',') },
-    });
+  const handleContinue = async () => {
+    try {
+      setIsSaving(true);
+      if (user?.id && selectedGenres.length > 0) {
+        await updateFavoriteGenres(user.id, selectedGenres);
+      }
+    } catch (error) {
+      console.warn('Failed to save favorite genres', error);
+    } finally {
+      setIsSaving(false);
+      router.push({
+        pathname: '/(onboarding)/format',
+        params: { name: params.name, genres: selectedGenres.join(',') },
+      });
+    }
   };
 
   const handleSkip = () => {
@@ -93,8 +107,12 @@ export default function OnboardingGenresScreen() {
             {selectedGenres.length} genre{selectedGenres.length !== 1 ? 's' : ''} selected
           </Text>
         )}
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+        <TouchableOpacity
+          style={[styles.continueButton, isSaving && styles.continueButtonDisabled]}
+          onPress={handleContinue}
+          disabled={isSaving}
+        >
+          <Text style={styles.continueButtonText}>{isSaving ? 'Saving…' : 'Continue'}</Text>
           <Ionicons name="arrow-forward" size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
