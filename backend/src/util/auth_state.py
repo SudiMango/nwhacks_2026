@@ -1,36 +1,49 @@
-import os
-from fastapi import FastAPI, Depends, HTTPException, Security
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import create_client, Client
-from dotenv import load_dotenv  # 1. Import load_dotenv
+from sqlalchemy.orm import Session
+from .db import get_db
+from ..service.jwt_service import JwtService
+from ..repository.user_repository import UserRepository
+from ..models.User import User
+import json
+import base64
 
-# 2. Load the variables from .env
-load_dotenv() 
+security = HTTPBearer()
+jwt_service = JwtService()
+user_repo = UserRepository()
 
-app = FastAPI()
-auth_scheme = HTTPBearer()
 
-# 3. Now os.environ can see your keys
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
-
-# Check if keys are missing to avoid cryptic errors later
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("Missing Supabase credentials in .env file")
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-async def get_current_user(token: HTTPAuthorizationCredentials = Security(auth_scheme)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
+    token = credentials.credentials
+    
+    # Verify token is valid
+    if not jwt_service.is_token_valid(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Extract email from token payload
     try:
-        # We pass the JWT from the frontend to Supabase to verify it
-        user = supabase.auth.get_user(token.credentials)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid session")
-        return user
+        _, payload_b64, _ = token.split(".")
+        payload_json = base64.urlsafe_b64decode(payload_b64 + "=" * (-len(payload_b64) % 4)).decode()
+        payload = json.loads(payload_json)
+        email = payload.get("sub")
     except Exception:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-
-@app.get("/protected-data")
-async def root(user=Depends(get_current_user)):
-    # user.user is where Supabase stores the user metadata
-    return {"message": f"Hello {user.user.email}, you are authorized!"}
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Get user from database
+    user = user_repo.find_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return user

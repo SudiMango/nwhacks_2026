@@ -5,14 +5,11 @@ import React, {
     ReactNode,
     useEffect,
 } from "react";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
-import { supabase } from "../lib/supabase";
 import { Alert } from "react-native";
 
-// 1. Critical: Allows the browser popup to close itself correctly
-WebBrowser.maybeCompleteAuthSession();
+const BACKEND_URL = "http://172.20.10.8:8000";
+const TOKEN_KEY = "auth_token";
 
 export interface UserProfile {
     id: string;
@@ -31,7 +28,6 @@ interface AuthContextType {
     isLoading: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (email: string, password: string) => Promise<void>;
-    signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
     completeOnboarding: (profile: Partial<UserProfile>) => Promise<void>;
     skipOnboarding: () => void;
@@ -39,166 +35,82 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const BACKEND_URL = "YOUR_BACKEND_URL"; // Update this for your FastAPI server
+async function fetchWithAuth(
+    endpoint: string,
+    options: RequestInit = {}
+): Promise<Response> {
+    const token = await SecureStore.getItemAsync(TOKEN_KEY);
+    const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        ...options.headers,
+    };
+
+    if (token) {
+        (headers as Record<string, string>)[
+            "Authorization"
+        ] = `Bearer ${token}`;
+    }
+
+    return fetch(`${BACKEND_URL}${endpoint}`, { ...options, headers });
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<UserProfile | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Initial load: Check for existing session
     useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (session?.user) {
-                    await loadUserProfile(session.user.id);
-                } else {
-                    setUser(null);
-                }
-            }
-        );
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
-
-    const loadUserProfile = async (userId: string) => {
-        try {
-            const { data, error } = await supabase
-                .from("users")
-                .select("*")
-                .eq("id", userId)
-                .single();
-
-            if (error) throw error;
-
-            setUser({
-                id: data.id,
-                email: data.email,
-                name: data.display_name || "",
-                favoriteGenres: data.favorite_genres || [],
-                readingFormat: data.reading_format || null,
-                lastBookRead: data.last_book_read || "",
-                onboardingCompleted: data.onboarding_completed || false,
-            });
-        } catch (error) {
-            console.error("Profile load error:", error);
-        }
-    };
-
-    const signInWithGoogle = async () => {
-        setIsLoading(true);
-        try {
-            console.log("1. Starting Google sign-in");
-            const redirectUrl = "frontend://google-auth";
-
-            console.log("2. Creating OAuth request");
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                    redirectTo: redirectUrl,
-                    skipBrowserRedirect: true,
-                },
-            });
-
-            console.log("3. OAuth request created");
-            if (error) throw error;
-
-            console.log("4. Opening browser");
-            const result = await WebBrowser.openAuthSessionAsync(
-                data.url,
-                redirectUrl
-            );
-
-            console.log("5. Browser returned");
-
-            if (result.type === "success") {
-                const { url } = result;
-
-                console.log("6. Parsing tokens from URL");
-                const getParam = (name: string) => {
-                    const regex = new RegExp(`[#?&]${name}=([^&]*)`);
-                    const match = url.match(regex);
-                    return match ? decodeURIComponent(match[1]) : null;
-                };
-
-                const accessToken = getParam("access_token");
-                const refreshToken = getParam("refresh_token");
-
-                console.log("7. Tokens extracted");
-                console.log("   Access Token length:", accessToken?.length);
-                console.log("   Refresh Token:", refreshToken);
-
-                if (!accessToken) {
-                    throw new Error("No access token received from Google");
-                }
-
-                console.log("8. Setting session with tokens");
-
+        const loadUserFromToken = async () => {
+            const token = await SecureStore.getItemAsync(TOKEN_KEY);
+            if (token) {
                 try {
-                    // setSession returns the session directly, not {data, error}
-                    const session = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken || "",
-                    });
-
-                    console.log("9. Session set successfully");
-                    console.log("11. Session data:", session);
-
-                    // The onAuthStateChange listener will automatically
-                    // pick up the session and load the profile
-                } catch (sessionError) {
-                    console.error("10. Session error:", sessionError);
-                    throw sessionError;
+                    const response = await fetchWithAuth("/users/me");
+                    if (response.ok) {
+                        const profile = await response.json();
+                        setUser(profile);
+                    } else {
+                        await SecureStore.deleteItemAsync(TOKEN_KEY);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch user profile", e);
                 }
-            } else if (result.type === "cancel") {
-                console.log("User cancelled Google sign-in");
             }
-        } catch (error: any) {
-            console.error("Error in signInWithGoogle:", error);
-            Alert.alert(
-                "Login Error",
-                error.message || "An error occurred during sign-in"
-            );
-        } finally {
-            console.log("Done. Setting isLoading to false");
             setIsLoading(false);
-        }
-    };
+        };
 
-    const syncWithBackend = async (token: string) => {
-        try {
-            await fetch(`${BACKEND_URL}/auth/sync-user`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            });
-        } catch (e) {
-            console.error("Backend sync failed:", e);
-        }
-    };
+        loadUserFromToken();
+    }, []);
 
     const signIn = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            const response = await fetch(`${BACKEND_URL}/users/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
             });
 
-            if (error) throw error;
+            const data = await response.json();
 
-            if (data.session && data.user) {
-                await SecureStore.setItemAsync(
-                    "session_token",
-                    data.session.access_token
-                );
-                await loadUserProfile(data.user.id);
+            if (!response.ok) {
+                throw new Error(data.detail || "Sign in failed");
             }
-        } catch (error) {
+
+            const { accessToken } = data;
+            if (!accessToken) {
+                throw new Error("No access token in response");
+            }
+
+            await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+
+            // Fetch user profile after successful login
+            const profileResponse = await fetchWithAuth("/users/me");
+            if (profileResponse.ok) {
+                const profile = await profileResponse.json();
+                setUser(profile);
+            }
+        } catch (error: any) {
             console.error("Sign in error:", error);
+            Alert.alert("Sign In Failed", error.message);
             throw error;
         } finally {
             setIsLoading(false);
@@ -208,22 +120,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signUp = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
+            const response = await fetch(`${BACKEND_URL}/users/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
             });
 
-            if (error) throw error;
+            const response2 = await fetch(`${BACKEND_URL}/users/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
-            if (data.session && data.user) {
-                await SecureStore.setItemAsync(
-                    "session_token",
-                    data.session.access_token
-                );
-                await loadUserProfile(data.user.id);
+            console.log(response2);
+            const data = await response2.json();
+
+            if (!response2.ok) {
+                throw new Error(data.detail || "Sign up failed");
             }
-        } catch (error) {
+
+            const { accessToken } = data;
+            if (!accessToken) {
+                throw new Error("No access token in response");
+            }
+
+            await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+
+            // Fetch user profile after successful signup
+            const profileResponse = await fetchWithAuth("/users/me");
+            if (profileResponse.ok) {
+                const profile = await profileResponse.json();
+                setUser(profile);
+            }
+        } catch (error: any) {
             console.error("Sign up error:", error);
+            Alert.alert("Sign Up Failed", error.message);
             throw error;
         } finally {
             setIsLoading(false);
@@ -231,9 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signOut = async () => {
-        await supabase.auth.signOut();
-        await SecureStore.deleteItemAsync("session_token");
         setUser(null);
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
     };
 
     const completeOnboarding = async (profile: Partial<UserProfile>) => {
@@ -241,25 +171,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setIsLoading(true);
         try {
-            const { error } = await supabase
-                .from("users")
-                .update({
+            const response = await fetchWithAuth("/users/me", {
+                method: "PATCH",
+                body: JSON.stringify({
                     display_name: profile.name,
                     favorite_genres: profile.favoriteGenres,
                     reading_format: profile.readingFormat,
                     onboarding_completed: true,
-                })
-                .eq("id", user.id);
-
-            if (error) throw error;
-
-            setUser({
-                ...user,
-                ...profile,
-                onboardingCompleted: true,
+                }),
             });
-        } catch (error) {
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || "Failed to update profile");
+            }
+
+            const updatedUser = await response.json();
+            setUser(updatedUser);
+        } catch (error: any) {
             console.error("Onboarding error:", error);
+            Alert.alert("Onboarding Failed", error.message);
             throw error;
         } finally {
             setIsLoading(false);
@@ -268,7 +199,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const skipOnboarding = () => {
         if (!user) return;
-
         setUser({
             ...user,
             name: user.name || "Reader",
@@ -285,7 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 isLoading,
                 signIn,
                 signUp,
-                signInWithGoogle,
                 signOut,
                 completeOnboarding,
                 skipOnboarding,
