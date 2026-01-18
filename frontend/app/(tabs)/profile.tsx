@@ -17,7 +17,7 @@ import { updateFavoriteGenres, updateLastBookRead, updatePreferredFormats } from
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   const displayName = user?.name?.trim() || 'Reader';
   const username = user?.email ? user.email.split('@')[0] : 'reader';
@@ -298,6 +298,17 @@ export default function ProfileScreen() {
           </View>
         )}
       </View>
+
+      {/* Sign Out Button */}
+      <View style={styles.signOutSection}>
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={signOut}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -572,5 +583,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  signOutSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  signOutButtonText: {
+    fontSize: 16,
+    color: '#DC2626',
+    fontWeight: '600',
   },
 });
