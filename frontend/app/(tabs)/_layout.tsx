@@ -53,18 +53,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="book"
         options={{
-          title: 'See Book',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="search-outline" size={tabIconSize} color={color} />
-          ),
+          href: null, // Hide this tab - functionality moved to Discover screen
         }}
       />
       <Tabs.Screen
         name="mybooks"
         options={{
-          title: 'My Books',
+          title: 'Collection',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="bookmark-outline" size={tabIconSize} color={color} />
+            <Ionicons name="library-outline" size={tabIconSize} color={color} />
           ),
         }}
       />

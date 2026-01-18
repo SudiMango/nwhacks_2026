@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -50,7 +52,8 @@ export default function OnboardingNameScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+      <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+        <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         {/* Skip Button */}
         <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
@@ -102,7 +105,8 @@ export default function OnboardingNameScreen() {
           <Text style={styles.continueButtonText}>{isSaving ? 'Saving…' : 'Continue'}</Text>
           <Ionicons name="arrow-forward" size={20} color="#FFF" />
         </TouchableOpacity>
-      </View>
+        </View>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }

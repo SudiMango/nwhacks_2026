@@ -47,6 +47,14 @@ class UserRepository:
         db.commit()
         db.refresh(user)
         return user
+
+    def set_reading_formats(self, db: Session, user: User, formats: List[str]) -> User:
+        # Store the first format if multiple are provided, or a single format
+        user.reading_format = formats[0] if formats else None
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
     
     def save_recommendations(self, db: Session, user: User, recommendations: List[str]) -> User:
         user.reccomended_books = recommendations

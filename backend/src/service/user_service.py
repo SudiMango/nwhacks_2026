@@ -39,6 +39,10 @@ class UserService:
     user = self._get_user_or_404(db, user_id)
     return self.user_repo.set_name(db, user, name)
 
+  def set_reading_formats(self, db: Session, user_id: UUID, formats: List[str]):
+    user = self._get_user_or_404(db, user_id)
+    return self.user_repo.set_reading_formats(db, user, formats)
+
   def get_user(self, db: Session, user_id: UUID):
     return self._get_user_or_404(db, user_id)
 

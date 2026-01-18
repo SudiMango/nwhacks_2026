@@ -13,6 +13,9 @@ import {
   Image,
   ActivityIndicator,
   Modal,
+  Alert,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +27,21 @@ import { locationPresets, LocationKey, recommendedByGenre, Book } from '@/data/m
 import { useBooks } from '@/context/BooksContext';
 import { useAuth } from '@/context/AuthContext';
 import { useLocalSearchParams, router } from 'expo-router';
-import { getBookRecommendations, RecommendedBook, findBookLibraries } from '@/services/api';
+import {
+  getBookRecommendations,
+  RecommendedBook,
+  findBookLibraries,
+  searchBooks,
+  submitTikTokUrl,
+  isValidTikTokUrl,
+  getRecommendations,
+} from '@/services/api';
+import { mockBooks } from '@/data/mockData';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,13 +60,27 @@ export default function DiscoverScreen() {
   const [highlightedLibraries, setHighlightedLibraries] = useState<any[]>([]);
   const [bookInfo, setBookInfo] = useState<{ title: string; author: string } | null>(null);
 
-  // AI Recommendations state
+  // AI Recommendations state (from search)
   const [recommendations, setRecommendations] = useState<RecommendedBook[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedBook, setSelectedBook] = useState<RecommendedBook | null>(null);
+
+  // Preloaded personalized recommendations state
+  const [preloadedRecs, setPreloadedRecs] = useState<RecommendedBook[]>([]);
+  const [isLoadingRecs, setIsLoadingRecs] = useState(false);
+  const [showPreloadedRecs, setShowPreloadedRecs] = useState(false);
   const [isFindingLibraries, setIsFindingLibraries] = useState(false);
 
-  const { addToTbr, isInTbr, isInCollection, tbrBooks } = useBooks();
+  // TikTok and book search state
+  const [showTiktokInput, setShowTiktokInput] = useState(false);
+  const [tiktokUrl, setTiktokUrl] = useState('');
+  const [isLoadingTiktok, setIsLoadingTiktok] = useState(false);
+  const [bookSearchQuery, setBookSearchQuery] = useState('');
+  const [bookSearchResults, setBookSearchResults] = useState<Book[]>([]);
+  const [isSearchingBooks, setIsSearchingBooks] = useState(false);
+  const [showBookSearch, setShowBookSearch] = useState(false);
+
+  const { addToTbr, isInTbr, isInCollection, tbrBooks, refreshBooks } = useBooks();
   const { user } = useAuth();
 
 
@@ -81,6 +112,74 @@ export default function DiscoverScreen() {
       hideSub.remove();
     };
   }, []);
+
+  // Preload personalized recommendations on mount
+  useEffect(() => {
+    const fetchPreloadedRecs = async () => {
+      if (!user?.id) {
+        // Use mock data if no user
+        const mockRecs = mockBooks.slice(0, 0).map((b) => ({
+          id: b.isbn || null,
+          title: b.title,
+          author: b.author,
+          description: b.description || '',
+          cover_url: b.cover_url,
+          isbn: b.isbn || null,
+          page_count: null,
+          published_date: '',
+        }));
+        setPreloadedRecs(mockRecs);
+        return;
+      }
+      setIsLoadingRecs(true);
+      try {
+        const data = await getRecommendations(user.id);
+        if (data?.recommendations?.length) {
+          const mapped = data.recommendations.map((b: any) => ({
+            id: b.book_id || b.isbn || null,
+            title: b.title,
+            author: b.author,
+            description: b.description || '',
+            cover_url: b.cover_url || 'https://placehold.co/110x165?text=No+Cover',
+            isbn: b.isbn || null,
+            page_count: b.page_count || null,
+            published_date: b.published_date || '',
+          }));
+          setPreloadedRecs(mapped.slice(0, 8));
+        } else {
+          // Fallback to mock data
+          const mockRecs = mockBooks.slice(0, 8).map((b) => ({
+            id: b.isbn || null,
+            title: b.title,
+            author: b.author,
+            description: b.description || '',
+            cover_url: b.cover_url,
+            isbn: b.isbn || null,
+            page_count: null,
+            published_date: '',
+          }));
+          setPreloadedRecs(mockRecs);
+        }
+      } catch (e) {
+        console.warn('Failed to fetch preloaded recommendations', e);
+        // Fallback to mock data
+        const mockRecs = mockBooks.slice(0, 8).map((b) => ({
+          id: b.isbn || null,
+          title: b.title,
+          author: b.author,
+          description: b.description || '',
+          cover_url: b.cover_url,
+          isbn: b.isbn || null,
+          page_count: null,
+          published_date: '',
+        }));
+        setPreloadedRecs(mockRecs);
+      } finally {
+        setIsLoadingRecs(false);
+      }
+    };
+    fetchPreloadedRecs();
+  }, [user?.id]);
 
   // Extract specific param values to use as dependencies
   const highlightLibrariesParam = params.highlightLibraries as string | undefined;
@@ -255,11 +354,253 @@ export default function DiscoverScreen() {
     return isInTbr(isbn) || isInCollection(isbn);
   };
 
+  // Toggle TikTok input
+  const toggleTiktokInput = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowTiktokInput((prev) => !prev);
+    setShowBookSearch(false);
+    setShowPreloadedRecs(false);
+    if (showTiktokInput) {
+      setTiktokUrl('');
+      Keyboard.dismiss();
+    }
+  }, [showTiktokInput]);
+
+  // Toggle book search
+  const toggleBookSearch = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowBookSearch((prev) => !prev);
+    setShowTiktokInput(false);
+    setShowPreloadedRecs(false);
+    if (showBookSearch) {
+      setBookSearchQuery('');
+      setBookSearchResults([]);
+      Keyboard.dismiss();
+    }
+  }, [showBookSearch]);
+
+  // Toggle preloaded recommendations
+  const togglePreloadedRecs = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowPreloadedRecs((prev) => !prev);
+    setShowTiktokInput(false);
+    setShowBookSearch(false);
+    // Clear AI search results when showing preloaded
+    if (!showPreloadedRecs) {
+      setRecommendations([]);
+      setSearchQuery('');
+    }
+    Keyboard.dismiss();
+  }, [showPreloadedRecs]);
+
+  // Handle TikTok URL submission
+  const handleSubmitTiktok = useCallback(async () => {
+    if (!tiktokUrl.trim()) {
+      Alert.alert('Error', 'Please enter a TikTok URL');
+      return;
+    }
+
+    if (!isValidTikTokUrl(tiktokUrl.trim())) {
+      Alert.alert('Invalid URL', 'Please enter a valid TikTok URL');
+      return;
+    }
+
+    Keyboard.dismiss();
+    setIsLoadingTiktok(true);
+
+    try {
+      const response = await submitTikTokUrl(tiktokUrl.trim());
+
+      if (response.books && response.books.length > 0) {
+        Alert.alert(
+          'Success!',
+          `Added ${response.books.length} book(s) to your TBR from this TikTok!`
+        );
+        setTiktokUrl('');
+        setShowTiktokInput(false);
+        refreshBooks();
+      } else {
+        Alert.alert(
+          'No Books Found',
+          "We couldn't find any books mentioned in this video."
+        );
+      }
+    } catch (error) {
+      console.error('Error submitting TikTok URL:', error);
+      Alert.alert(
+        'Error',
+        'Failed to process TikTok video. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoadingTiktok(false);
+    }
+  }, [tiktokUrl, refreshBooks]);
+
+  // Handle book search
+  const handleBookSearch = useCallback(async () => {
+    if (!bookSearchQuery.trim() || bookSearchQuery.length < 2) {
+      setBookSearchResults([]);
+      return;
+    }
+
+    setIsSearchingBooks(true);
+    try {
+      const results = await searchBooks(bookSearchQuery, 10);
+      setBookSearchResults(results);
+    } catch (error) {
+      console.error('Error searching books:', error);
+      setBookSearchResults([]);
+    } finally {
+      setIsSearchingBooks(false);
+    }
+  }, [bookSearchQuery]);
+
+  // Debounced book search
+  useEffect(() => {
+    if (!showBookSearch) return;
+    const timeoutId = setTimeout(handleBookSearch, 500);
+    return () => clearTimeout(timeoutId);
+  }, [bookSearchQuery, showBookSearch]);
+
   return (
     <View style={styles.container}>
+      {/* Header with Logo and Action Buttons */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Text style={styles.logo}>bookmarked.</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.headerButton, showPreloadedRecs && styles.headerButtonActive]}
+            onPress={togglePreloadedRecs}
+          >
+            <Ionicons name="sparkles" size={20} color={showPreloadedRecs ? '#FFF' : '#1A1A2E'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerButton, showBookSearch && styles.headerButtonActive]}
+            onPress={toggleBookSearch}
+          >
+            <Ionicons name="search" size={20} color={showBookSearch ? '#FFF' : '#1A1A2E'} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerButton, showTiktokInput && styles.headerButtonActive]}
+            onPress={toggleTiktokInput}
+          >
+            <Ionicons name="logo-tiktok" size={20} color={showTiktokInput ? '#FFF' : '#1A1A2E'} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* TikTok URL Input */}
+      {showTiktokInput && (
+        <View style={[styles.inputPanel, { top: insets.top + 60 }]}>
+          <Text style={styles.inputPanelTitle}>Add books from TikTok</Text>
+          <View style={styles.inputRow}>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={styles.tiktokInput}
+                placeholder="Paste TikTok URL..."
+                placeholderTextColor="#9CA3AF"
+                value={tiktokUrl}
+                onChangeText={setTiktokUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                returnKeyType="go"
+                onSubmitEditing={handleSubmitTiktok}
+                editable={!isLoadingTiktok}
+                autoFocus
+              />
+              {tiktokUrl.length > 0 && !isLoadingTiktok && (
+                <TouchableOpacity onPress={() => setTiktokUrl('')}>
+                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.submitButton, isLoadingTiktok && styles.submitButtonDisabled]}
+              onPress={handleSubmitTiktok}
+              disabled={isLoadingTiktok}
+            >
+              {isLoadingTiktok ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="add" size={22} color="#FFF" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Book Search Input */}
+      {showBookSearch && (
+        <View style={[styles.inputPanel, { top: insets.top + 60 }]}>
+          <Text style={styles.inputPanelTitle}>Search for books</Text>
+          <View style={styles.inputWrapper}>
+            <Ionicons name="search" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <TextInput
+              style={styles.bookSearchInput}
+              placeholder="Search by title or author..."
+              placeholderTextColor="#9CA3AF"
+              value={bookSearchQuery}
+              onChangeText={setBookSearchQuery}
+              returnKeyType="search"
+              autoFocus
+            />
+            {bookSearchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setBookSearchQuery(''); setBookSearchResults([]); }}>
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* Book Search Results */}
+          {isSearchingBooks ? (
+            <View style={styles.searchResultsLoading}>
+              <ActivityIndicator size="small" color="#4A90A4" />
+              <Text style={styles.searchResultsLoadingText}>Searching...</Text>
+            </View>
+          ) : bookSearchResults.length > 0 ? (
+            <ScrollView style={styles.searchResultsList} showsVerticalScrollIndicator={false}>
+              {bookSearchResults.map((book, index) => (
+                <TouchableOpacity
+                  key={book.isbn || index}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    const recBook: RecommendedBook = {
+                      id: book.isbn || null,
+                      title: book.title,
+                      author: book.author,
+                      description: book.description || '',
+                      cover_url: book.cover_url,
+                      isbn: book.isbn || null,
+                      page_count: null,
+                      published_date: '',
+                    };
+                    setSelectedBook(recBook);
+                  }}
+                >
+                  <Image source={{ uri: book.cover_url }} style={styles.searchResultCover} />
+                  <View style={styles.searchResultInfo}>
+                    <Text style={styles.searchResultTitle} numberOfLines={2}>{book.title}</Text>
+                    <Text style={styles.searchResultAuthor} numberOfLines={1}>{book.author}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.searchResultAddButton}
+                    onPress={() => addToTbr(book)}
+                  >
+                    <Ionicons name="add" size={20} color="#4A90A4" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : bookSearchQuery.length >= 2 ? (
+            <Text style={styles.noResultsText}>No books found</Text>
+          ) : null}
+        </View>
+      )}
+
       {/* Book Search Banner */}
       {bookInfo && highlightedLibraries.length > 0 && (
-        <View style={styles.searchBanner}>
+        <View style={[styles.searchBanner, { top: insets.top + 60 }]}>
           <View style={styles.searchBannerContent}>
             <Ionicons name="book" size={20} color="#4A90A4" />
             <View style={styles.searchBannerText}>
@@ -344,8 +685,8 @@ export default function DiscoverScreen() {
         })}
       </MapView>
 
-      {/* AI Recommendations Results */}
-      {recommendations.length > 0 && !keyboardVisible && (
+      {/* Recommendations Results (AI search or preloaded) */}
+      {(showPreloadedRecs || recommendations.length > 0) && !keyboardVisible && (
         <View
           style={[
             styles.recommendationsContainer,
@@ -359,9 +700,19 @@ export default function DiscoverScreen() {
           <View style={styles.recommendationsHeader}>
             <View style={styles.recommendationsTitleRow}>
               <Ionicons name="sparkles" size={14} color="#4A90A4" />
-              <Text style={styles.recommendationsTitle}>Recommendations</Text>
+              <Text style={styles.recommendationsTitle}>
+                {showPreloadedRecs ? 'For You' : 'Recommendations'}
+              </Text>
+              {isLoadingRecs && showPreloadedRecs && (
+                <ActivityIndicator size="small" color="#4A90A4" style={{ marginLeft: 8 }} />
+              )}
             </View>
-            <TouchableOpacity onPress={() => setRecommendations([])}>
+            <TouchableOpacity
+              onPress={() => {
+                setRecommendations([]);
+                setShowPreloadedRecs(false);
+              }}
+            >
               <Ionicons name="close" size={18} color="#6B7280" />
             </TouchableOpacity>
           </View>
@@ -370,9 +721,9 @@ export default function DiscoverScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.recommendationsScroll}
           >
-            {recommendations.map((book, index) => (
+            {(showPreloadedRecs ? preloadedRecs : recommendations).map((book, index) => (
               <TouchableOpacity
-                key={book.id || index}
+                key={book.id || book.isbn || index}
                 style={styles.recommendationCard}
                 onPress={() => setSelectedBook(book)}
                 activeOpacity={0.9}
@@ -392,27 +743,6 @@ export default function DiscoverScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Genre quick picks above search (hidden when recommendations are showing) */}
-      {!keyboardVisible && recommendations.length === 0 && (
-        <View
-          style={[
-            styles.genreBar,
-            {
-              left: horizontalInset,
-              right: horizontalInset,
-              bottom: bottomOffset + navEstimatedHeight + keyboardOffset + 72,
-            },
-          ]}
-        >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.genreChips}
-          >
           </ScrollView>
         </View>
       )}
@@ -500,13 +830,6 @@ export default function DiscoverScreen() {
                   </View>
                 </View>
 
-                {selectedBook.description && (
-                  <View style={styles.modalDescriptionSection}>
-                    <Text style={styles.modalSectionTitle}>Description</Text>
-                    <Text style={styles.modalDescription}>{selectedBook.description}</Text>
-                  </View>
-                )}
-
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[
@@ -549,6 +872,13 @@ export default function DiscoverScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {selectedBook.description && (
+                  <View style={styles.modalDescriptionSection}>
+                    <Text style={styles.modalSectionTitle}>Description</Text>
+                    <Text style={styles.modalDescription}>{selectedBook.description}</Text>
+                  </View>
+                )}
               </ScrollView>
 
               <TouchableOpacity
@@ -570,15 +900,168 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  searchBanner: {
+  header: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 30,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logo: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000000',
+    fontStyle: 'italic',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  headerButtonActive: {
+    backgroundColor: '#1A1A2E',
+    borderColor: '#1A1A2E',
+  },
+  inputPanel: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 25,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  inputPanelTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tiktokInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1A1A2E',
+    paddingVertical: 12,
+  },
+  bookSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1A1A2E',
+    paddingVertical: 12,
+  },
+  submitButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E07A5F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#CCC',
+  },
+  searchResultsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  searchResultsLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  searchResultsList: {
+    maxHeight: 250,
+    marginTop: 12,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  searchResultCover: {
+    width: 40,
+    height: 60,
+    borderRadius: 4,
+    backgroundColor: '#E8E8E8',
+  },
+  searchResultInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  searchResultTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A2E',
+  },
+  searchResultAuthor: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  searchResultAddButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  searchBanner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     zIndex: 20,
     backgroundColor: '#FFF',
-    paddingTop: 50,
-    paddingBottom: 12,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -608,60 +1091,6 @@ const styles = StyleSheet.create({
   },
   searchBannerClose: {
     padding: 4,
-  },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1A1A2E',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  locationSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  locationChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  locationChipActive: {
-    backgroundColor: '#E0ECF2',
-    borderColor: '#4A90A4',
-  },
-  locationChipText: {
-    marginLeft: 6,
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  locationChipTextActive: {
-    color: '#0F1115',
   },
   map: {
     width: '100%',
