@@ -55,7 +55,7 @@ export default function TabLayout() {
         options={{
           title: 'See Book',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="book-outline" size={tabIconSize} color={color} />
+            <Ionicons name="search-outline" size={tabIconSize} color={color} />
           ),
         }}
       />
@@ -64,7 +64,7 @@ export default function TabLayout() {
         options={{
           title: 'My Books',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="book-outline" size={tabIconSize} color={color} />
+            <Ionicons name="bookmark-outline" size={tabIconSize} color={color} />
           ),
         }}
       />
@@ -73,7 +73,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name="person-circle-outline" size={tabIconSize} color={color} />
+            <Ionicons name="person-outline" size={tabIconSize} color={color} />
           ),
         }}
       />
