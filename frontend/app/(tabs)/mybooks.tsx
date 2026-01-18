@@ -376,37 +376,50 @@ export default function MyBooksScreen() {
                     </TouchableOpacity>
                 </View>
 
-            {/* Collection Section */}
-            {filteredCollectionBooks.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="library" size={20} color="#4A90A4" />
-                  <Text style={styles.sectionTitle}>My Collection</Text>
-                  <View style={[styles.badge, { backgroundColor: '#4A90A4' }]}>
-                    <Text style={styles.badgeText}>{filteredCollectionBooks.length}</Text>
-                  </View>
-                </View>
-                <View style={styles.bookGrid}>
-                  {filteredCollectionBooks.map((book) => (
-                    <BookCard
-                      key={book.isbn}
-                      book={book}
-                      onPress={() => {
-                        setSelectedBook(book);
-                        setSelectedSource('collection');
-                      }}
-                      onLongPress={() => {
-                        removeFromCollection(book.isbn);
-                      }}
-                      badgeIcon="checkmark-circle"
-                      badgeColor="#4A90A4"
-                    />
-                  ))}
-                </View>
-                <View style={[styles.shelfLine, { backgroundColor: '#B8D4E3' }]} />
-                <Text style={styles.hintText}>Long press to remove</Text>
-              </View>
-            )}
+                {showTiktokInput && (
+                    <View style={styles.tiktokInputContainer}>
+                        <View style={styles.tiktokInputWrapper}>
+                            <TextInput
+                                style={styles.tiktokInput}
+                                placeholder="Paste TikTok URL..."
+                                placeholderTextColor="#999"
+                                value={tiktokUrl}
+                                onChangeText={setTiktokUrl}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                keyboardType="url"
+                                returnKeyType="go"
+                                onSubmitEditing={handleSubmitUrl}
+                                editable={!isLoading}
+                                autoFocus
+                            />
+                            {tiktokUrl.length > 0 && !isLoading && (
+                                <TouchableOpacity onPress={() => setTiktokUrl("")}>
+                                    <Ionicons
+                                        name="close-circle"
+                                        size={18}
+                                        color="#999"
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <TouchableOpacity
+                            style={[
+                                styles.submitButton,
+                                isLoading && styles.submitButtonDisabled,
+                            ]}
+                            onPress={handleSubmitUrl}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator size="small" color="#FFF" />
+                            ) : (
+                                <Ionicons name="add" size={22} color="#FFF" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
 
             <ScrollView
                 style={styles.scrollView}

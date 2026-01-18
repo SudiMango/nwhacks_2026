@@ -398,7 +398,7 @@ export async function getBookRecommendations(
     query: string,
     favoriteGenres?: string[],
     recentBooks?: string[],
-    count: number = 5
+    count: number = 8
 ): Promise<RecommendedBook[]> {
     try {
         const response = await fetch(`${API_BASE_URL}/get-book/recommend`, {
