@@ -499,13 +499,6 @@ export default function DiscoverScreen() {
                   </View>
                 </View>
 
-                {selectedBook.description && (
-                  <View style={styles.modalDescriptionSection}>
-                    <Text style={styles.modalSectionTitle}>Description</Text>
-                    <Text style={styles.modalDescription}>{selectedBook.description}</Text>
-                  </View>
-                )}
-
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[
@@ -548,6 +541,13 @@ export default function DiscoverScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {selectedBook.description && (
+                  <View style={styles.modalDescriptionSection}>
+                    <Text style={styles.modalSectionTitle}>Description</Text>
+                    <Text style={styles.modalDescription}>{selectedBook.description}</Text>
+                  </View>
+                )}
               </ScrollView>
 
               <TouchableOpacity
