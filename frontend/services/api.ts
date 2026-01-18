@@ -130,7 +130,7 @@ export async function searchLibraries(
  */
 export async function searchBooks(query: string, maxResults: number = 20): Promise<Book[]> {
   try {
-    const url = `${API_BASE_URL}/books/search?q=${encodeURIComponent(query)}&max_results=${maxResults}`;
+    const url = `${API_BASE_URL}/get-book/search?q=${encodeURIComponent(query)}&max_results=${maxResults}`;
     console.log('Searching books at:', url);
     
     const response = await fetch(url, {
