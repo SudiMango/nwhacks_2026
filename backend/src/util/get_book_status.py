@@ -79,7 +79,7 @@ async def get_book_status(library_id: str, isbn: str):
 
         # ISBN → record ID
         await page.goto(search_url)
-        await page.wait_for_selector('a[href*="/v2/record/S"]', timeout=15000)
+        await page.wait_for_selector('a[href*="/v2/record/S"]', timeout=10000)
 
         href = await page.locator(
             'a[href*="/v2/record/S"]'
@@ -92,7 +92,7 @@ async def get_book_status(library_id: str, isbn: str):
         await page.goto(record_url)
 
         # Summary availability
-        await page.wait_for_selector("div.cp-circulation-info", timeout=15000)
+        await page.wait_for_selector("div.cp-circulation-info", timeout=10000)
         summary_html = await page.locator(
             "div.cp-circulation-info"
         ).inner_html()
@@ -113,7 +113,7 @@ async def get_book_status(library_id: str, isbn: str):
         await page.wait_for_selector(
             "div.cp-item-availability-table",
             state="attached",
-            timeout=15000
+            timeout=8000
         )
 
         table_html = await page.locator(

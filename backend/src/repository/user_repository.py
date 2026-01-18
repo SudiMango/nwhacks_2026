@@ -13,7 +13,6 @@ class UserRepository:
     existing = set(user.favorite_genres or [])
     merged = list(existing.union(genres))
     user.favorite_genres = merged
-    db.add(user)
     db.commit()
     db.refresh(user)
     return user
@@ -22,28 +21,30 @@ class UserRepository:
     existing = set(user.favorite_genres or [])
     updated = [g for g in existing if g not in set(genres)]
     user.favorite_genres = updated
-    db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
   def set_last_book_read(self, db: Session, user: User, book_name: str) -> User:
     user.last_book_read = book_name
-    db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
   def clear_last_book_read(self, db: Session, user: User) -> User:
     user.last_book_read = None
-    db.add(user)
     db.commit()
     db.refresh(user)
     return user
 
   def set_name(self, db: Session, user: User, name: str) -> User:
     user.name = name
-    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+  def save_recommendations(self, db: Session, user: User, recommendations: List[str]) -> User:
+    user.reccomended_books = recommendations
     db.commit()
     db.refresh(user)
     return user
