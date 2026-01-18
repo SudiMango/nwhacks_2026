@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
+import { router } from "expo-router";
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL;
 const TOKEN_KEY = "auth_token";
@@ -60,21 +61,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const loadUserFromToken = async () => {
-            const token = await SecureStore.getItemAsync(TOKEN_KEY);
-            if (token) {
-                try {
+            try {
+                const token = await SecureStore.getItemAsync(TOKEN_KEY);
+                if (token) {
                     const response = await fetchWithAuth("/users/me");
                     if (response.ok) {
                         const profile = await response.json();
                         setUser(profile);
+                        router.replace("/(tabs)");
                     } else {
+                        console.log("bru3h");
                         await SecureStore.deleteItemAsync(TOKEN_KEY);
+                        router.replace("/(auth)/sign-up");
                     }
-                } catch (e) {
-                    console.error("Failed to fetch user profile", e);
+                } else {
+                    router.replace("/(auth)/sign-up");
                 }
+            } catch (e) {
+                console.error("Failed to fetch user profile", e);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         };
 
         loadUserFromToken();
@@ -102,11 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
 
-            // Fetch user profile after successful login
             const profileResponse = await fetchWithAuth("/users/me");
             if (profileResponse.ok) {
                 const profile = await profileResponse.json();
                 setUser(profile);
+                router.replace("/(tabs)");
             }
         } catch (error: any) {
             console.error("Sign in error:", error);
@@ -132,7 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({ email, password }),
             });
 
-            console.log(response2);
             const data = await response2.json();
 
             if (!response2.ok) {
@@ -146,11 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
 
-            // Fetch user profile after successful signup
             const profileResponse = await fetchWithAuth("/users/me");
             if (profileResponse.ok) {
                 const profile = await profileResponse.json();
                 setUser(profile);
+                router.replace("/(tabs)");
             }
         } catch (error: any) {
             console.error("Sign up error:", error);
@@ -164,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         setUser(null);
         await SecureStore.deleteItemAsync(TOKEN_KEY);
+        router.replace("/(auth)/sign-in");
     };
 
     const completeOnboarding = async (profile: Partial<UserProfile>) => {
