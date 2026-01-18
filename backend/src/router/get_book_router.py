@@ -5,6 +5,8 @@ from ..service.get_book_service import GetBookService
 from ..service.google_books_service import GoogleBooksService
 from ..service.library_service import LibraryService
 from pydantic import BaseModel
+from ..models.User import User
+from ..util.auth_state import get_current_user
 
 router = APIRouter(prefix="/get-book", tags=["book"])
 
@@ -16,8 +18,8 @@ class TikTokLinkRequest(BaseModel):
     tiktok_url: str
 
 @router.get("/from-tiktok")
-def get_book_from_tt(request: TikTokLinkRequest, db: Session = Depends(get_db)):
-    return get_book_service.get_book_from_tt(db, request.tiktok_url)
+def get_book_from_tt(request: TikTokLinkRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return get_book_service.get_book_from_tt(db, request.tiktok_url, current_user.user_id)
 
 @router.get("/search", summary="Search books by name using Google Books API")
 def search_books(
