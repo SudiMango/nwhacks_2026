@@ -1,14 +1,17 @@
 // Aligned with DB schema
 
 export interface Book {
-    isbn: string;
-    title: string;
-    author: string;
-    cover_url: string;
-    description?: string;
-    // Optional metadata for quick views
-    rating?: number;
-    genre?: string;
+  isbn: string;
+  title: string;
+  author: string;
+  coverUrl: string;
+  description?: string;
+  book_id?: string;
+  bookId?: string;
+  tbr?: boolean;
+  // Optional metadata for quick views
+  rating?: number;
+  genre?: string;
 }
 
 export interface Video {

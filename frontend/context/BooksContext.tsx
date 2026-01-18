@@ -1,148 +1,125 @@
-import React, {
-    createContext,
-    useContext,
-    useState,
-    ReactNode,
-    useEffect,
-} from "react";
-import { useFocusEffect } from "@react-navigation/native";
-import { Book, mockCollectionBooks } from "@/data/mockData";
-import { fetchWithAuth } from "./AuthContext";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { Book } from "@/data/mockData";
+import { useAuth } from "./AuthContext";
+import { fetchUserBooks, addUserBookToTbr, markBookRead, removeUserBook } from "@/services/api";
 
 interface BooksContextType {
-    // TBR (To Be Read) - books user wants to read
-    tbrBooks: Book[];
-    addToTbr: (book: Book) => void;
-    removeFromTbr: (isbn: string) => void;
-    isInTbr: (isbn: string) => boolean;
-    moveToCollection: (isbn: string) => void;
-
-    // Collection - books user has read/owns
-    collectionBooks: Book[];
-    addToCollection: (book: Book) => void;
-    removeFromCollection: (isbn: string) => void;
-    isInCollection: (isbn: string) => boolean;
-
-    // Search
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
-
-    // Loading state
-    isLoading: boolean;
-    fetchMyBooks: () => void;
+  tbrBooks: Book[];
+  collectionBooks: Book[];
+  isLoading: boolean;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  addToTbr: (book: Book) => Promise<void>;
+  removeFromTbr: (isbn: string) => Promise<void>;
+  isInTbr: (isbn: string) => boolean;
+  moveToCollection: (isbn: string) => Promise<void>;
+  addToCollection: (book: Book) => Promise<void>;
+  removeFromCollection: (isbn: string) => Promise<void>;
+  isInCollection: (isbn: string) => boolean;
 }
 
 const BooksContext = createContext<BooksContextType | undefined>(undefined);
 
 export function BooksProvider({ children }: { children: ReactNode }) {
-    const [tbrBooks, setTbrBooks] = useState<Book[]>([]);
-    const [collectionBooks, setCollectionBooks] =
-        useState<Book[]>(mockCollectionBooks);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const [tbrBooks, setTbrBooks] = useState<Book[]>([]);
+  const [collectionBooks, setCollectionBooks] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-    const fetchMyBooks = async () => {
-        console.log("loading books mine...");
-        try {
-            setIsLoading(true);
-            const response = await fetchWithAuth("/get-book/my-books");
-            if (!response.ok) {
-                throw new Error("Failed to fetch books");
-            }
-            const books = await response.json();
+  const loadBooks = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      const [tbr, collection] = await Promise.all([
+        fetchUserBooks(user.id, true),
+        fetchUserBooks(user.id, false),
+      ]);
+      setTbrBooks(tbr);
+      setCollectionBooks(collection);
+    } catch (e) {
+      console.warn("Failed to load user books", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-            // Separate books by tbr status
-            const tbr = books.filter((book: any) => book.tbr === true);
-            const collection = books.filter((book: any) => book.tbr === false);
+  useEffect(() => {
+    loadBooks();
+  }, [user?.id]);
 
-            setTbrBooks(tbr);
-            setCollectionBooks(collection);
+  const addToTbr = async (book: Book) => {
+    if (!user?.id) return;
+    await addUserBookToTbr(user.id, book);
+    await loadBooks();
+  };
 
-            console.log(tbrBooks);
-        } catch (error) {
-            console.error("Error fetching books:", error);
-            // Keep mock data as fallback
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const removeFromTbr = async (isbn: string) => {
+    if (!user?.id) return;
+    const bookId = findBookIdByIsbn(tbrBooks, isbn);
+    await removeUserBook(user.id, bookId, isbn);
+    await loadBooks();
+  };
 
-    // Fetch user's books whenever tab is focused
-    useEffect(() => {
-        fetchMyBooks();
-    }, []);
+  const moveToCollection = async (isbn: string) => {
+    if (!user?.id) return;
+    const bookId = findBookIdByIsbn(tbrBooks, isbn);
+    const book = findBookByIsbn(tbrBooks, isbn);
+    await markBookRead(user.id, bookId, isbn, book as Book);
+    await loadBooks();
+  };
 
-    // TBR functions
-    const addToTbr = (book: Book) => {
-        setTbrBooks((prev) => {
-            if (prev.find((b) => b.isbn === book.isbn)) {
-                return prev;
-            }
-            return [...prev, book];
-        });
-    };
+  const addToCollection = async (book: Book) => {
+    if (!user?.id) return;
+    // Mark as read immediately
+    await addUserBookToTbr(user.id, book);
+    await markBookRead(user.id, (book as any).book_id || (book as any).bookId, book.isbn, book);
+    await loadBooks();
+  };
 
-    const removeFromTbr = (isbn: string) => {
-        setTbrBooks((prev) => prev.filter((b) => b.isbn !== isbn));
-    };
+  const removeFromCollection = async (isbn: string) => {
+    if (!user?.id) return;
+    const bookId = findBookIdByIsbn(collectionBooks, isbn);
+    await removeUserBook(user.id, bookId, isbn);
+    await loadBooks();
+  };
 
-    const isInTbr = (isbn: string) => {
-        return tbrBooks.some((b) => b.isbn === isbn);
-    };
+  const isInTbr = (isbn: string) => tbrBooks.some((b) => b.isbn === isbn);
+  const isInCollection = (isbn: string) => collectionBooks.some((b) => b.isbn === isbn);
 
-    const moveToCollection = (isbn: string) => {
-        const book = tbrBooks.find((b) => b.isbn === isbn);
-        if (book) {
-            removeFromTbr(isbn);
-            addToCollection(book);
-        }
-    };
+  return (
+    <BooksContext.Provider
+      value={{
+        tbrBooks,
+        collectionBooks,
+        isLoading,
+        searchQuery,
+        setSearchQuery,
+        addToTbr,
+        removeFromTbr,
+        isInTbr,
+        moveToCollection,
+        addToCollection,
+        removeFromCollection,
+        isInCollection,
+      }}
+    >
+      {children}
+    </BooksContext.Provider>
+  );
+}
 
-    // Collection functions
-    const addToCollection = (book: Book) => {
-        setCollectionBooks((prev) => {
-            if (prev.find((b) => b.isbn === book.isbn)) {
-                return prev;
-            }
-            return [...prev, book];
-        });
-    };
+function findBookIdByIsbn(list: Book[], isbn: string): string | undefined {
+  const match = list.find((b) => b.isbn === isbn);
+  return (match as any)?.book_id || (match as any)?.bookId;
+}
 
-    const removeFromCollection = (isbn: string) => {
-        setCollectionBooks((prev) => prev.filter((b) => b.isbn !== isbn));
-    };
-
-    const isInCollection = (isbn: string) => {
-        return collectionBooks.some((b) => b.isbn === isbn);
-    };
-
-    return (
-        <BooksContext.Provider
-            value={{
-                tbrBooks,
-                addToTbr,
-                removeFromTbr,
-                isInTbr,
-                moveToCollection,
-                collectionBooks,
-                addToCollection,
-                removeFromCollection,
-                isInCollection,
-                searchQuery,
-                setSearchQuery,
-                isLoading,
-                fetchMyBooks,
-            }}
-        >
-            {children}
-        </BooksContext.Provider>
-    );
+function findBookByIsbn(list: Book[], isbn: string): Book | undefined {
+  return list.find((b) => b.isbn === isbn);
 }
 
 export function useBooks() {
-    const context = useContext(BooksContext);
-    if (context === undefined) {
-        throw new Error("useBooks must be used within a BooksProvider");
-    }
-    return context;
+  const context = useContext(BooksContext);
+  if (!context) throw new Error("useBooks must be used within a BooksProvider");
+  return context;
 }

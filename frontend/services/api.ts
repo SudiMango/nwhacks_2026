@@ -39,6 +39,129 @@ export async function updateFavoriteGenres(
 }
 
 /**
+ * Generate recommendations for a user
+ */
+export async function generateRecommendations(userId: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/recommendations`);
+
+    if (!response.ok) {
+        throw new Error("Failed to generate recommendations");
+    }
+
+    return response.json();
+}
+
+/**
+ * Fetch recommendations for a user (also triggers generation server-side)
+ */
+export async function getRecommendations(userId: string): Promise<{ recommendations: Book[] }> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/recommendations`);
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch recommendations");
+    }
+
+    return response.json();
+}
+
+/**
+ * Add a book to a user's TBR (also syncs user_books)
+ */
+export async function addUserBookToTbr(userId: string, book: Book): Promise<void> {
+    const payload = {
+        book_id: (book as any).book_id || (book as any).bookId,
+        isbn: book.isbn,
+        title: book.title,
+        author: book.author,
+        cover_url: book.coverUrl,
+        description: book.description,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/tbr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to add book to TBR");
+    }
+}
+
+/**
+ * Mark a TBR book as read (sets tbr = false in user_books)
+ */
+export async function markBookRead(
+    userId: string,
+    bookId?: string,
+    isbn?: string,
+    book?: Book
+): Promise<void> {
+    const payload = {
+        book_id: bookId || (book as any)?.book_id || (book as any)?.bookId,
+        isbn: isbn || book?.isbn,
+        title: book?.title,
+        author: book?.author,
+        cover_url: book?.coverUrl,
+        description: book?.description,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/tbr/mark-read`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to mark book as read");
+    }
+}
+
+export async function removeUserBook(userId: string, bookId?: string, isbn?: string): Promise<void> {
+    const targetId = bookId || '00000000-0000-0000-0000-000000000000';
+    const url = new URL(`${API_BASE_URL}/users/${userId}/tbr/${targetId}`);
+    if (isbn) url.searchParams.set('isbn', isbn);
+
+    const response = await fetch(url.toString(), {
+        method: "DELETE",
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to remove book");
+    }
+}
+
+/**
+ * Fetch user_books entries. If tbrOnly is true, returns only TBR entries; if false, only collection.
+ */
+export async function fetchUserBooks(userId: string, tbrOnly: boolean): Promise<Book[]> {
+    const url = new URL(`${API_BASE_URL}/users/${userId}/tbr`);
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch user books");
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data)) return [];
+
+    const filtered = data.filter((item: any) => {
+        return tbrOnly ? item.tbr === true : item.tbr === false;
+    });
+
+    return filtered.map((item: any) => ({
+        isbn: item.isbn || "",
+        title: item.title || "",
+        author: item.author || "",
+        coverUrl: item.cover_url || item.coverUrl || "",
+        description: item.description || "",
+        book_id: item.book_id || item.bookId,
+        bookId: item.book_id || item.bookId,
+        tbr: item.tbr,
+    }));
+}
+
+/**
  * Update user's name
  */
 export async function updateUserName(
