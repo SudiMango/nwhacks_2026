@@ -18,7 +18,11 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-from src.models.Book import Base
+from src.models.Base import Base
+from src.models.Book import Book
+from src.models.UserBooks import UserBook
+from src.models.User import User
+from src.models.Video import Video
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

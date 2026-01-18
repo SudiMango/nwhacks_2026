@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import { router } from 'expo-router';
 import { useBooks } from '@/context/BooksContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Book } from '@/data/mockData';
-import { submitTikTokUrl, isValidTikTokUrl } from '@/services/api';
+import { submitTikTokUrl, isValidTikTokUrl, searchBooks } from '@/services/api';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,7 +36,7 @@ interface BookCardProps {
   book: Book;
   onPress?: () => void;
   onLongPress: () => void;
-  badgeIcon: 'time-outline' | 'checkmark-circle';
+  badgeIcon: 'time-outline' | 'checkmark-circle' | 'add-circle';
   badgeColor: string;
 }
 
@@ -86,6 +86,10 @@ export default function MyBooksScreen() {
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  
+  // Google Books search results
+  const [googleBooksResults, setGoogleBooksResults] = useState<Book[]>([]);
+  const [isSearchingGoogle, setIsSearchingGoogle] = useState(false);
 
   const toggleTiktokInput = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -158,8 +162,39 @@ export default function MyBooksScreen() {
     );
   }, [collectionBooks, searchQuery]);
 
+  // Search Google Books when query changes
+  useEffect(() => {
+    const searchGoogleBooks = async () => {
+      if (!searchQuery.trim() || searchQuery.length < 2) {
+        setGoogleBooksResults([]);
+        return;
+      }
+
+      setIsSearchingGoogle(true);
+      try {
+        const results = await searchBooks(searchQuery, 10);
+        // Filter out books that are already in user's collection or TBR
+        const userBookIsbns = new Set([
+          ...tbrBooks.map(b => b.isbn),
+          ...collectionBooks.map(b => b.isbn)
+        ]);
+        const filteredResults = results.filter(book => !userBookIsbns.has(book.isbn));
+        setGoogleBooksResults(filteredResults);
+      } catch (error) {
+        console.error('Error searching Google Books:', error);
+        setGoogleBooksResults([]);
+      } finally {
+        setIsSearchingGoogle(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(searchGoogleBooks, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, tbrBooks, collectionBooks]);
+
   const hasBooks = tbrBooks.length > 0 || collectionBooks.length > 0;
-  const hasFilteredBooks = filteredTbrBooks.length > 0 || filteredCollectionBooks.length > 0;
+  const hasFilteredBooks = filteredTbrBooks.length > 0 || filteredCollectionBooks.length > 0 || googleBooksResults.length > 0;
 
   const handleFindOnMap = useCallback(() => {
     setSelectedBook(null);
@@ -331,6 +366,51 @@ export default function MyBooksScreen() {
                 </View>
                 <View style={[styles.shelfLine, { backgroundColor: '#B8D4E3' }]} />
                 <Text style={styles.hintText}>Long press to remove</Text>
+              </View>
+            )}
+
+            {/* Google Books Search Results */}
+            {searchQuery.trim() && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="search" size={20} color="#6D28D9" />
+                  <Text style={styles.sectionTitle}>Search Results</Text>
+                  {isSearchingGoogle && (
+                    <ActivityIndicator size="small" color="#6D28D9" style={{ marginLeft: 8 }} />
+                  )}
+                  {!isSearchingGoogle && googleBooksResults.length > 0 && (
+                    <View style={[styles.badge, { backgroundColor: '#6D28D9' }]}>
+                      <Text style={styles.badgeText}>{googleBooksResults.length}</Text>
+                    </View>
+                  )}
+                </View>
+                {isSearchingGoogle ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#6D28D9" />
+                    <Text style={styles.loadingText}>Searching books...</Text>
+                  </View>
+                ) : googleBooksResults.length > 0 ? (
+                  <>
+                    <View style={styles.bookGrid}>
+                      {googleBooksResults.map((book) => (
+                        <BookCard
+                          key={book.isbn || book.title}
+                          book={book}
+                          onPress={() => setSelectedBook(book)}
+                          onLongPress={() => addToTbr(book)}
+                          badgeIcon="add-circle"
+                          badgeColor="#6D28D9"
+                        />
+                      ))}
+                    </View>
+                    <Text style={styles.hintText}>Tap to view details, long press to add to TBR</Text>
+                  </>
+                ) : searchQuery.trim().length >= 2 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="book-outline" size={40} color="#CCC" />
+                    <Text style={styles.emptySubtitle}>No results found</Text>
+                  </View>
+                ) : null}
               </View>
             )}
 
@@ -623,6 +703,16 @@ const styles = StyleSheet.create({
     color: '#AAA',
     textAlign: 'center',
     marginTop: 8,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
   statsContainer: {
     flexDirection: 'row',
