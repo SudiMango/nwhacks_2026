@@ -86,6 +86,7 @@ export default function MyBooksScreen() {
   const [tiktokUrl, setTiktokUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [selectedSource, setSelectedSource] = useState<'tbr' | 'collection' | null>(null);
   
   // Google Books search results
   const [googleBooksResults, setGoogleBooksResults] = useState<Book[]>([]);
@@ -198,8 +199,16 @@ export default function MyBooksScreen() {
 
   const handleFindOnMap = useCallback(() => {
     setSelectedBook(null);
+    setSelectedSource(null);
     router.push('/(tabs)');
   }, []);
+
+  const handleMarkRead = useCallback(() => {
+    if (!selectedBook) return;
+    moveToCollection(selectedBook.isbn);
+    setSelectedBook(null);
+    setSelectedSource(null);
+  }, [moveToCollection, selectedBook]);
 
   const handlePurchase = useCallback(() => {
     if (!selectedBook) return;
@@ -328,7 +337,10 @@ export default function MyBooksScreen() {
                     <BookCard
                       key={book.isbn}
                       book={book}
-                      onPress={() => setSelectedBook(book)}
+                      onPress={() => {
+                        setSelectedBook(book);
+                        setSelectedSource('tbr');
+                      }}
                       onLongPress={() => {
                         moveToCollection(book.isbn);
                       }}
@@ -357,7 +369,10 @@ export default function MyBooksScreen() {
                     <BookCard
                       key={book.isbn}
                       book={book}
-                      onPress={() => setSelectedBook(book)}
+                      onPress={() => {
+                        setSelectedBook(book);
+                        setSelectedSource('collection');
+                      }}
                       onLongPress={() => removeFromCollection(book.isbn)}
                       badgeIcon="checkmark-circle"
                       badgeColor="#4A90A4"
@@ -438,7 +453,14 @@ export default function MyBooksScreen() {
       {/* Quick book preview overlay */}
       {selectedBook && (
         <View style={styles.overlay}>
-          <TouchableOpacity style={styles.overlayBack} activeOpacity={1} onPress={() => setSelectedBook(null)} />
+          <TouchableOpacity
+            style={styles.overlayBack}
+            activeOpacity={1}
+            onPress={() => {
+              setSelectedBook(null);
+              setSelectedSource(null);
+            }}
+          />
           <View style={styles.previewCard}>
             <View style={styles.previewHeader}>
               <View style={styles.previewCoverWrapper}>
@@ -480,6 +502,12 @@ export default function MyBooksScreen() {
             </Text>
 
             <View style={styles.previewActions}>
+              {selectedSource === 'tbr' && (
+                <TouchableOpacity style={styles.readButton} onPress={handleMarkRead}>
+                  <Ionicons name="checkmark-done-outline" size={18} color="#0F1115" />
+                  <Text style={styles.readButtonText}>Read</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.buyButton} onPress={handlePurchase}>
                 <Ionicons name="cart-outline" size={18} color="#0F1115" />
                 <Text style={styles.buyButtonText}>Buy on Bookshop</Text>
@@ -502,7 +530,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     paddingBottom: 15,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
@@ -848,8 +876,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  buyButton: {
+  readButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F6EC',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  readButtonText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  buyButton: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

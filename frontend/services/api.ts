@@ -18,6 +18,57 @@ export interface ApiError {
 }
 
 /**
+ * Update user's favorite genres
+ */
+export async function updateFavoriteGenres(userId: string, genres: string[]): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/favorite-genres`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ genres }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update favorite genres');
+  }
+}
+
+/**
+ * Update user's name
+ */
+export async function updateUserName(userId: string, name: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/name`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update name');
+  }
+}
+
+/**
+ * Update user's last book read
+ */
+export async function updateLastBookRead(userId: string, bookName: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/last-book`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ book_name: bookName }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update last book read');
+  }
+}
+
+/**
  * Submit a TikTok URL to extract books from
  */
 export async function submitTikTokUrl(url: string): Promise<VideoSubmitResponse> {
