@@ -154,7 +154,7 @@ export async function fetchUserBooks(
     userId: string,
     tbrOnly: boolean
 ): Promise<Book[]> {
-    const url = new URL(`${API_BASE_URL}/users/${userId}/tbr`);
+    const url = new URL(`${API_BASE_URL}/users/${userId}/tbr/`);
     const response = await fetch(url.toString());
 
     if (!response.ok) {
