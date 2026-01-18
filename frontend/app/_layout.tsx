@@ -8,7 +8,7 @@ import { BooksProvider } from '@/context/BooksContext';
 import { AuthProvider } from '@/context/AuthContext';
 
 export const unstable_settings = {
-  initialRouteName: '(auth)',
+  initialRouteName: '(tabs)',
 };
 
 export default function RootLayout() {
