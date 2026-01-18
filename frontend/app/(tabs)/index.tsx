@@ -630,59 +630,49 @@ export default function DiscoverScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {(highlightedLibraries.length > 0 ? highlightedLibraries : location.libraries)
-          .filter((library) => {
-            if (highlightedLibraries.length === 0) return true;
-            return !(library.not_found === true || library.not_in_catalog === true);
-          })
-          .map((library) => {
-          const isHighlighted = highlightedLibraries.length > 0;
-          const availableAtBranch = library.available_at_this_branch === true;
-          const notInCatalog = library.not_found === true || library.not_in_catalog === true;
-          const ownsCopiesHere = typeof library.copies === 'number' && library.copies > 0;
+        {highlightedLibraries.length > 0 &&
+          highlightedLibraries
+            .filter((library) => !(library.not_found === true || library.not_in_catalog === true))
+            .map((library) => {
+              const availableAtBranch = library.available_at_this_branch === true;
+              const ownsCopiesHere = typeof library.copies === 'number' && library.copies > 0;
 
-          let bgColor = '#EF4444'; // default red: branch has no pickup availability
-          let iconName: keyof typeof Ionicons.glyphMap = 'close-circle';
-          let statusText = '';
+              let bgColor = '#EF4444'; // default red when highlighted set present
+              let iconName: keyof typeof Ionicons.glyphMap = 'close-circle';
+              let statusText = '';
 
-          if (isHighlighted) {
-            if (availableAtBranch) {
-              bgColor = '#10B981'; // green: available for pickup here
-              iconName = 'checkmark-circle';
-              statusText = `Available here (${library.copies || 0} copies)`;
-            } else if (ownsCopiesHere || library.is_available === false) {
-              bgColor = '#EF4444'; // red: owns copies but none available here
-              iconName = 'close-circle';
-              statusText = library.status_text || 'All copies checked out at this branch';
-            } else if (notInCatalog) {
-              return null;
-            }
-          }
+              if (availableAtBranch) {
+                bgColor = '#10B981'; // green: available for pickup here
+                iconName = 'checkmark-circle';
+                statusText = `Available here (${library.copies || 0} copies)`;
+              } else if (ownsCopiesHere || library.is_available === false) {
+                bgColor = '#EF4444'; // red: owns copies but none available here
+                iconName = 'close-circle';
+                statusText = library.status_text || 'All copies checked out at this branch';
+              }
 
-          let description = library.type === 'library' ? 'Public Library' : 'Bookstore';
-          if (isHighlighted && statusText) {
-            description = statusText;
-          }
+              let description = library.type === 'library' ? 'Public Library' : 'Bookstore';
+              if (statusText) {
+                description = statusText;
+              }
 
-          return (
-            <Marker
-              key={library.id}
-              coordinate={{
-                latitude: library.latitude,
-                longitude: library.longitude,
-              }}
-              title={library.name}
-              description={description}
-            >
-              <View style={[styles.customMarker, { backgroundColor: bgColor }]}>
-                <Ionicons name={iconName} size={18} color="#FFF" />
-              </View>
-              {isHighlighted && availableAtBranch && (
-                <View style={styles.markerPulse} />
-              )}
-            </Marker>
-          );
-        }).filter(Boolean)}
+              return (
+                <Marker
+                  key={library.id}
+                  coordinate={{
+                    latitude: library.latitude,
+                    longitude: library.longitude,
+                  }}
+                  title={library.name}
+                  description={description}
+                >
+                  <View style={[styles.customMarker, { backgroundColor: bgColor }]}>
+                    <Ionicons name={iconName} size={18} color="#FFF" />
+                  </View>
+                  {availableAtBranch && <View style={styles.markerPulse} />}
+                </Marker>
+              );
+            })}
       </MapView>
 
       {/* Recommendations Results (AI search or preloaded) */}
