@@ -1,5 +1,5 @@
 import { Book } from "@/data/mockData";
-
+import { fetchWithAuth } from "@/context/AuthContext";
 // Configure your backend URL here
 // For mobile devices, use your computer's IP address instead of localhost
 // e.g., 'http://192.168.1.100:8000'
@@ -7,10 +7,7 @@ const API_BASE_URL =
     process.env.EXPO_PUBLIC_API_URL || "http://10.19.134.189:8000";
 
 export interface VideoSubmitResponse {
-    success: boolean;
-    videoId: string;
     books: Book[];
-    message?: string;
 }
 
 export interface ApiError {
@@ -87,25 +84,25 @@ export async function updateLastBookRead(
 export async function submitTikTokUrl(
     url: string
 ): Promise<VideoSubmitResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/videos`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            url,
-            platform: "tiktok",
-        }),
-    });
+    try {
+        const response = await fetchWithAuth("/get-book/from-tiktok", {
+            method: "POST",
+            body: JSON.stringify({
+                tiktok_url: url,
+            }),
+        });
 
-    if (!response.ok) {
-        const error = await response
-            .json()
-            .catch(() => ({ message: "Failed to submit video" }));
-        throw new Error(error.message || "Failed to submit video");
+        if (!response.ok) {
+            throw new Error(
+                `HTTP ${response.status}: ${await response.text()}`
+            );
+        }
+
+        return response.json();
+    } catch (error) {
+        console.error("submitTikTokUrl error:", error);
+        throw error;
     }
-
-    return response.json();
 }
 
 /**
