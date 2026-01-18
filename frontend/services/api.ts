@@ -1,7 +1,9 @@
 import { Book } from '@/data/mockData';
 
 // Configure your backend URL here
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+// For mobile devices, use your computer's IP address instead of localhost
+// e.g., 'http://192.168.1.100:8000'
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface VideoSubmitResponse {
   success: boolean;
@@ -70,6 +72,55 @@ export async function searchLibraries(
 
   const data = await response.json();
   return data.libraries;
+}
+
+/**
+ * Search books using Google Books API
+ */
+export async function searchBooks(query: string, maxResults: number = 20): Promise<Book[]> {
+  try {
+    const url = `${API_BASE_URL}/books/search?q=${encodeURIComponent(query)}&max_results=${maxResults}`;
+    console.log('Searching books at:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Search books response error:', response.status, errorText);
+      throw new Error(`Failed to search books: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Search books response:', data);
+    
+    if (!data.books || !Array.isArray(data.books)) {
+      console.warn('Invalid response format:', data);
+      return [];
+    }
+    
+    // Convert Google Books API format to our Book format
+    return data.books.map((book: any) => ({
+      isbn: book.isbn || book.id || '',
+      title: book.title || '',
+      author: book.author || '',
+      coverUrl: book.cover_url || '',
+      description: book.description || '',
+    }));
+  } catch (error: any) {
+    console.error('Error searching books:', error);
+    if (error.message?.includes('Network request failed')) {
+      console.error('Network error - make sure:');
+      console.error('1. Backend server is running');
+      console.error('2. API_BASE_URL is correct:', API_BASE_URL);
+      console.error('3. For mobile, use your computer IP instead of localhost');
+    }
+    return [];
+  }
 }
 
 /**
