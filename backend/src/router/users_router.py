@@ -17,6 +17,10 @@ class FavoriteGenresRequest(BaseModel):
   genres: List[str]
 
 
+class ReadingFormatsRequest(BaseModel):
+  formats: List[str]
+
+
 class LastBookRequest(BaseModel):
   book_name: str
 
@@ -47,6 +51,11 @@ def clear_last_book_read(user_id: UUID, db: Session = Depends(get_db)):
 @router.put("/{user_id}/name")
 def set_user_name(user_id: UUID, request: NameRequest, db: Session = Depends(get_db)):
   return user_service.set_name(db, user_id, request.name)
+
+
+@router.post("/{user_id}/reading-formats")
+def set_reading_formats(user_id: UUID, request: ReadingFormatsRequest, db: Session = Depends(get_db)):
+  return user_service.set_reading_formats(db, user_id, request.formats)
 
 
 @router.get("/{user_id}/recommendations")

@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -67,7 +69,8 @@ export default function OnboardingLastBookScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+      <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+        <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
         {/* Skip Button */}
         <TouchableOpacity style={styles.skipButton} onPress={handleSkip} disabled={isLoading}>
           <Text style={styles.skipText}>Skip</Text>
@@ -104,6 +107,7 @@ export default function OnboardingLastBookScreen() {
             multiline
             numberOfLines={2}
             textAlignVertical="center"
+            editable={!lastBook.trim()}
           />
         </View>
 
@@ -146,7 +150,8 @@ export default function OnboardingLastBookScreen() {
         <Text style={styles.welcomeText}>
           Welcome to Bookmarked, {params.name || 'Reader'}! 📚
         </Text>
-      </View>
+        </View>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }
