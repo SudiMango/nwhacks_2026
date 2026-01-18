@@ -6,27 +6,25 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BooksProvider } from '@/context/BooksContext';
 import { AuthProvider } from '@/context/AuthContext';
-
-export const unstable_settings = {
-  initialRouteName: '(auth)',
-};
+import { ShareIntentProvider } from 'expo-share-intent';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <AuthProvider>
-      <BooksProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(onboarding)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </BooksProvider>
-    </AuthProvider>
+    <ShareIntentProvider>
+      <AuthProvider>
+        <BooksProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(onboarding)" />
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </BooksProvider>
+      </AuthProvider>
+    </ShareIntentProvider>
   );
 }

@@ -40,7 +40,6 @@ export default function SignInScreen() {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithGoogle();
       router.replace('/(onboarding)/name');
     } catch (error) {
       Alert.alert('Error', 'Failed to sign in with Google.');

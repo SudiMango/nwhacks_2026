@@ -21,6 +21,8 @@ import { locationPresets, LocationKey, recommendedByGenre, Book } from '@/data/m
 import { useBooks } from '@/context/BooksContext';
 import { useLocalSearchParams, router } from 'expo-router';
 
+import { useShareIntentContext } from "expo-share-intent";
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
@@ -40,6 +42,20 @@ export default function DiscoverScreen() {
   const [bookInfo, setBookInfo] = useState<{ title: string; author: string } | null>(null);
 
   const { addToTbr, isInTbr } = useBooks();
+
+  const { hasShareIntent, shareIntent, resetShareIntent } =
+    useShareIntentContext();
+
+  useEffect(() => {
+    if (!hasShareIntent) return;
+
+    const url = shareIntent?.webUrl;
+
+    if (url?.includes("tiktok.com")) {
+      console.log("IDSUHDSBIBSUHIBFHUBHIJNBHSJIHBHIHUH")
+      resetShareIntent(); // VERY important
+    }
+  }, [hasShareIntent]);
 
   const genreButtons = useMemo(
     () => [
