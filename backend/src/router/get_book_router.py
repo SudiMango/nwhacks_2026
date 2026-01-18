@@ -8,6 +8,8 @@ from ..service.library_service import LibraryService
 from ..service.recommendation_service import RecommendationService
 from pydantic import BaseModel
 from ..models.User import User
+from ..models.UserBooks import UserBook
+from ..models.Book import Book
 from ..util.auth_state import get_current_user
 
 router = APIRouter(prefix="/get-book", tags=["book"])
@@ -101,3 +103,26 @@ def recommend_books(request: RecommendRequest):
         "count": len(books),
         "books": books
     }
+@router.get("/my-books", summary="Get current user's books")
+def get_my_books(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user_books = db.query(UserBook).filter(UserBook.user_id == current_user.user_id).all()
+    
+    books = []
+    for user_book in user_books:
+        book = db.query(Book).filter(Book.isbn == user_book.isbn).first()
+        if book:
+            books.append({
+                "user_book_id": user_book.user_book_id,
+                "isbn": user_book.isbn,
+                "title": book.title,
+                "author": book.author,
+                "cover_url": book.cover_url,
+                "description": book.description,
+                "tbr": user_book.tbr,
+                "added_at": user_book.added_at
+            })
+    
+    return books
