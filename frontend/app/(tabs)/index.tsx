@@ -37,6 +37,7 @@ import {
   getRecommendations,
 } from '@/services/api';
 import { mockBooks } from '@/data/mockData';
+import { BookLoader } from '@/components/loading';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
