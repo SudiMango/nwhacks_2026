@@ -13,18 +13,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { updateUserName } from '@/services/api';
 
 export default function OnboardingNameScreen() {
   const insets = useSafeAreaInsets();
-  const { skipOnboarding } = useAuth();
+  const { skipOnboarding, user } = useAuth();
   const [name, setName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleContinue = () => {
-    if (!name.trim()) {
+  const handleContinue = async () => {
+    if (!name.trim() || isSaving) {
       Alert.alert('Name Required', 'Please enter your name to continue.');
       return;
     }
-    router.push({ pathname: '/(onboarding)/genres', params: { name: name.trim() } });
+    const trimmed = name.trim();
+    try {
+      setIsSaving(true);
+      if (user?.id) {
+        await updateUserName(user.id, trimmed);
+      }
+    } catch (error) {
+      console.warn('Failed to save name', error);
+    } finally {
+      setIsSaving(false);
+      router.push({ pathname: '/(onboarding)/genres', params: { name: trimmed } });
+    }
   };
 
   const handleSkip = () => {
@@ -79,10 +92,14 @@ export default function OnboardingNameScreen() {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[styles.continueButton, !name.trim() && styles.continueButtonDisabled]}
+          style={[
+            styles.continueButton,
+            (!name.trim() || isSaving) && styles.continueButtonDisabled,
+          ]}
           onPress={handleContinue}
+          disabled={!name.trim() || isSaving}
         >
-          <Text style={styles.continueButtonText}>Continue</Text>
+          <Text style={styles.continueButtonText}>{isSaving ? 'Saving…' : 'Continue'}</Text>
           <Ionicons name="arrow-forward" size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
