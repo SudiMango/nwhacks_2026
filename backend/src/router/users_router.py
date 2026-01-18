@@ -52,7 +52,29 @@ def set_user_name(user_id: UUID, request: NameRequest, db: Session = Depends(get
 @router.get("/{user_id}/recommendations")
 def get_recommendations(user_id: UUID, db: Session = Depends(get_db)):
   user = user_service._get_user_or_404(db, user_id)
-  recs = recs_service.recommend(user.favorite_genres or [], user.last_book_read or "", count=8)
-  titles = [item.get("title", "") for item in recs if item.get("title")]
-  user_service.save_recommendations(db, user_id, titles)
-  return {"recommendations": recs}
+  books = recs_service.generate_and_store(
+    db,
+    user_id,
+    user.favorite_genres or [],
+    user.last_book_read or "",
+    count=8,
+  )
+  return {
+    "recommendations": [
+      {
+        "book_id": str(book.book_id),
+        "title": book.title,
+        "author": book.author,
+        "cover_url": book.cover_url,
+        "description": book.description,
+        "isbn": book.isbn,
+      }
+      for book in books
+    ]
+  }
+
+
+@router.delete("/{user_id}/recommendations")
+def delete_recommendations(user_id: UUID, db: Session = Depends(get_db)):
+  recs_service.rec_repo.delete_for_user(db, user_id)
+  return {"status": "deleted"}
