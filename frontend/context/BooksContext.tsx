@@ -7,12 +7,7 @@ import React, {
 } from "react";
 import { Book } from "@/data/mockData";
 import { useAuth } from "./AuthContext";
-import {
-    fetchUserBooks,
-    addUserBookToTbr,
-    markBookRead,
-    removeUserBook,
-} from "@/services/api";
+import { fetchUserBooks, addUserBookToTbr, markBookRead, removeUserBook, updateLastBookRead } from "@/services/api";
 
 interface BooksContextType {
   tbrBooks: Book[];
@@ -74,25 +69,49 @@ export function BooksProvider({ children }: { children: ReactNode }) {
     };
 
     const moveToCollection = async (isbn: string) => {
-        if (!user?.id) return;
-        const bookId = findBookIdByIsbn(tbrBooks, isbn);
-        const book = findBookByIsbn(tbrBooks, isbn);
-        await markBookRead(user.id, bookId, isbn, book as Book);
-        await loadBooks();
+      if (!user?.id) return;
+
+      const bookId = findBookIdByIsbn(tbrBooks, isbn);
+      const book = findBookByIsbn(tbrBooks, isbn);
+
+      await markBookRead(user.id, bookId, isbn, book as Book);
+
+      // Update last book read
+      if (book?.title) {
+        try {
+          await updateLastBookRead(user.id, book.title);
+        } catch (e) {
+          console.warn("Failed to update last book read", e);
+        }
+      }
+
+      await loadBooks();
     };
 
     const addToCollection = async (book: Book) => {
-        if (!user?.id) return;
-        // Mark as read immediately
-        await addUserBookToTbr(user.id, book);
-        await markBookRead(
-            user.id,
-            (book as any).book_id || (book as any).bookId,
-            book.isbn,
-            book
-        );
-        await loadBooks();
+      if (!user?.id) return;
+
+      // Add to TBR + mark as read
+      await addUserBookToTbr(user.id, book);
+      await markBookRead(
+        user.id,
+        (book as any).book_id || (book as any).bookId,
+        book.isbn,
+        book
+      );
+
+      // Update last book read
+      if (book?.title) {
+        try {
+          await updateLastBookRead(user.id, book.title);
+        } catch (e) {
+          console.warn("Failed to update last book read", e);
+        }
+      }
+
+      await loadBooks();
     };
+
 
     const removeFromCollection = async (isbn: string) => {
         if (!user?.id) return;

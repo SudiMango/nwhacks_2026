@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -9,11 +9,6 @@ import {
     TouchableOpacity,
     TextInput,
     ActivityIndicator,
-    Alert,
-    Keyboard,
-    LayoutAnimation,
-    Platform,
-    UIManager,
     Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,21 +16,8 @@ import { router } from "expo-router";
 import { useBooks } from "@/context/BooksContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Book } from "@/data/mockData";
-import {
-    submitTikTokUrl,
-    isValidTikTokUrl,
-    searchBooks,
-    findBookLibraries,
-} from "@/services/api";
+import { findBookLibraries } from "@/services/api";
 import * as Location from "expo-location";
-
-// Enable LayoutAnimation on Android
-if (
-    Platform.OS === "android" &&
-    UIManager.setLayoutAnimationEnabledExperimental
-) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 16;
@@ -95,84 +77,17 @@ export default function MyBooksScreen() {
         removeFromTbr,
         removeFromCollection,
         moveToCollection,
-        addToTbr,
-        isInTbr,
-        isInCollection,
         searchQuery,
         setSearchQuery,
-        refreshBooks,
     } = useBooks();
 
-    // TikTok URL input state
-    const [showTiktokInput, setShowTiktokInput] = useState(false);
-    const [tiktokUrl, setTiktokUrl] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [selectedBook, setSelectedBook] = useState<Book | null>(null);
     const [selectedSource, setSelectedSource] = useState<
         "tbr" | "collection" | null
     >(null);
-    const [dott, setdott] = useState<boolean>(false);
 
-    // Google Books search results
-    const [googleBooksResults, setGoogleBooksResults] = useState<Book[]>([]);
-    const [isSearchingGoogle, setIsSearchingGoogle] = useState(false);
-
-    const toggleTiktokInput = useCallback(() => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setShowTiktokInput((prev) => !prev);
-        if (showTiktokInput) {
-            setTiktokUrl("");
-            Keyboard.dismiss();
-        }
-    }, [showTiktokInput]);
-
-    const handleSubmitUrl = useCallback(async () => {
-        if (!tiktokUrl.trim()) {
-            Alert.alert("Error", "Please enter a TikTok URL");
-            return;
-        }
-
-        if (!isValidTikTokUrl(tiktokUrl.trim())) {
-            Alert.alert("Invalid URL", "Please enter a valid TikTok URL");
-            return;
-        }
-
-        Keyboard.dismiss();
-        setdott(true);
-        setIsLoading(true);
-
-        try {
-            const response = await submitTikTokUrl(tiktokUrl.trim());
-
-            if (response.books && response.books.length > 0) {
-                // Add all books to TBR
-                Alert.alert(
-                    "Success!",
-                    `Added ${response.books.length} book(s) to your TBR from this TikTok!`
-                );
-                setTiktokUrl("");
-                setShowTiktokInput(false);
-                refreshBooks();
-            } else {
-                Alert.alert(
-                    "No Books Found",
-                    "We couldn't find any books mentioned in this video."
-                );
-            }
-        } catch (error) {
-            console.error("Error submitting TikTok URL:", error);
-            Alert.alert(
-                "Demo Mode",
-                "Backend not connected. In production, books from the TikTok would be added to your TBR.",
-                [{ text: "OK" }]
-            );
-        } finally {
-            setIsLoading(false);
-            setdott(false);
-        }
-    }, [tiktokUrl, addToTbr]);
-
-    // Filter books based on search query
+    // Filter books based on search query (local only)
     const filteredTbrBooks = useMemo(() => {
         if (!searchQuery.trim()) return tbrBooks;
         const query = searchQuery.toLowerCase();
@@ -193,44 +108,9 @@ export default function MyBooksScreen() {
         );
     }, [collectionBooks, searchQuery]);
 
-    // Search Google Books when query changes
-    useEffect(() => {
-        const searchGoogleBooks = async () => {
-            if (!searchQuery.trim() || searchQuery.length < 2) {
-                setGoogleBooksResults([]);
-                return;
-            }
-
-            setIsSearchingGoogle(true);
-            try {
-                const results = await searchBooks(searchQuery, 10);
-                // Filter out books that are already in user's collection or TBR
-                const userBookIsbns = new Set([
-                    ...tbrBooks.map((b) => b.isbn),
-                    ...collectionBooks.map((b) => b.isbn),
-                ]);
-                const filteredResults = results.filter(
-                    (book) => !userBookIsbns.has(book.isbn)
-                );
-                setGoogleBooksResults(filteredResults);
-            } catch (error) {
-                console.error("Error searching Google Books:", error);
-                setGoogleBooksResults([]);
-            } finally {
-                setIsSearchingGoogle(false);
-            }
-        };
-
-        // Debounce search
-        const timeoutId = setTimeout(searchGoogleBooks, 500);
-        return () => clearTimeout(timeoutId);
-    }, [searchQuery, tbrBooks, collectionBooks]);
-
     const hasBooks = tbrBooks.length > 0 || collectionBooks.length > 0;
     const hasFilteredBooks =
-        filteredTbrBooks.length > 0 ||
-        filteredCollectionBooks.length > 0 ||
-        googleBooksResults.length > 0;
+        filteredTbrBooks.length > 0 || filteredCollectionBooks.length > 0;
 
     const handleFindOnMap = useCallback(async () => {
         if (!selectedBook) return;
@@ -332,99 +212,36 @@ export default function MyBooksScreen() {
         <View style={styles.container}>
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-                <Text style={styles.title}>My Books</Text>
+                <Text style={styles.title}>My Collection</Text>
 
-                {/* Search Bar + TikTok Button Row */}
-                <View style={styles.searchRow}>
-                    <View style={styles.searchContainer}>
-                        <Ionicons
-                            name="search"
-                            size={18}
-                            color="#999"
-                            style={styles.searchIcon}
-                        />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search your books..."
-                            placeholderTextColor="#999"
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            returnKeyType="search"
-                        />
-                        {searchQuery.length > 0 && (
-                            <TouchableOpacity
-                                onPress={() => setSearchQuery("")}
-                            >
-                                <Ionicons
-                                    name="close-circle"
-                                    size={18}
-                                    color="#999"
-                                />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {/* TikTok Button */}
-                    <TouchableOpacity
-                        style={[
-                            styles.tiktokButton,
-                            showTiktokInput && styles.tiktokButtonActive,
-                        ]}
-                        onPress={toggleTiktokInput}
-                    >
-                        <Ionicons
-                            name="logo-tiktok"
-                            size={20}
-                            color={showTiktokInput ? "#FFF" : "#1A1A2E"}
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                {showTiktokInput && (
-                    <View style={styles.tiktokInputContainer}>
-                        <View style={styles.tiktokInputWrapper}>
-                            <TextInput
-                                style={styles.tiktokInput}
-                                placeholder="Paste TikTok URL..."
-                                placeholderTextColor="#999"
-                                value={tiktokUrl}
-                                onChangeText={setTiktokUrl}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                keyboardType="url"
-                                returnKeyType="go"
-                                onSubmitEditing={handleSubmitUrl}
-                                editable={!isLoading}
-                                autoFocus
-                            />
-                            {tiktokUrl.length > 0 && !isLoading && (
-                                <TouchableOpacity
-                                    onPress={() => setTiktokUrl("")}
-                                >
-                                    <Ionicons
-                                        name="close-circle"
-                                        size={18}
-                                        color="#999"
-                                    />
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <Ionicons
+                        name="search"
+                        size={18}
+                        color="#999"
+                        style={styles.searchIcon}
+                    />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search your collection..."
+                        placeholderTextColor="#999"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        returnKeyType="search"
+                    />
+                    {searchQuery.length > 0 && (
                         <TouchableOpacity
-                            style={[
-                                styles.submitButton,
-                                isLoading && styles.submitButtonDisabled,
-                            ]}
-                            onPress={handleSubmitUrl}
-                            disabled={isLoading}
+                            onPress={() => setSearchQuery("")}
                         >
-                            {isLoading ? (
-                                <ActivityIndicator size="small" color="#FFF" />
-                            ) : (
-                                <Ionicons name="add" size={22} color="#FFF" />
-                            )}
+                            <Ionicons
+                                name="close-circle"
+                                size={18}
+                                color="#999"
+                            />
                         </TouchableOpacity>
-                    </View>
-                )}
+                    )}
+                </View>
             </View>
 
             <ScrollView
@@ -441,11 +258,10 @@ export default function MyBooksScreen() {
                     <View style={styles.emptyState}>
                         <Ionicons name="book-outline" size={80} color="#CCC" />
                         <Text style={styles.emptyTitle}>
-                            Your shelf is empty
+                            Your collection is empty
                         </Text>
                         <Text style={styles.emptySubtitle}>
-                            Tap the TikTok button above to add books from
-                            BookTok videos
+                            Go to the Discover tab to find and add books
                         </Text>
                     </View>
                 ) : !hasFilteredBooks && searchQuery ? (
@@ -557,93 +373,6 @@ export default function MyBooksScreen() {
                             </View>
                         )}
 
-                        {/* Google Books Search Results */}
-                        {searchQuery.trim() && (
-                            <View style={styles.section}>
-                                <View style={styles.sectionHeader}>
-                                    <Ionicons
-                                        name="search"
-                                        size={20}
-                                        color="#6D28D9"
-                                    />
-                                    <Text style={styles.sectionTitle}>
-                                        Search Results
-                                    </Text>
-                                    {isSearchingGoogle && (
-                                        <ActivityIndicator
-                                            size="small"
-                                            color="#6D28D9"
-                                            style={{ marginLeft: 8 }}
-                                        />
-                                    )}
-                                    {!isSearchingGoogle &&
-                                        googleBooksResults.length > 0 && (
-                                            <View
-                                                style={[
-                                                    styles.badge,
-                                                    {
-                                                        backgroundColor:
-                                                            "#6D28D9",
-                                                    },
-                                                ]}
-                                            >
-                                                <Text style={styles.badgeText}>
-                                                    {googleBooksResults.length}
-                                                </Text>
-                                            </View>
-                                        )}
-                                </View>
-                                {isSearchingGoogle ? (
-                                    <View style={styles.loadingContainer}>
-                                        <ActivityIndicator
-                                            size="large"
-                                            color="#6D28D9"
-                                        />
-                                        <Text style={styles.loadingText}>
-                                            Searching books...
-                                        </Text>
-                                    </View>
-                                ) : googleBooksResults.length > 0 ? (
-                                    <>
-                                        <View style={styles.bookGrid}>
-                                            {googleBooksResults.map((book) => (
-                                                <BookCard
-                                                    key={
-                                                        book.isbn || book.title
-                                                    }
-                                                    book={book}
-                                                    onPress={() => {
-                                                        setSelectedBook(book);
-                                                        setSelectedSource(null);
-                                                    }}
-                                                    onLongPress={() =>
-                                                        addToTbr(book)
-                                                    }
-                                                    badgeIcon="add-circle"
-                                                    badgeColor="#6D28D9"
-                                                />
-                                            ))}
-                                        </View>
-                                        <Text style={styles.hintText}>
-                                            Tap to view details, long press to
-                                            add to TBR
-                                        </Text>
-                                    </>
-                                ) : searchQuery.trim().length >= 2 ? (
-                                    <View style={styles.emptyState}>
-                                        <Ionicons
-                                            name="book-outline"
-                                            size={40}
-                                            color="#CCC"
-                                        />
-                                        <Text style={styles.emptySubtitle}>
-                                            No results found
-                                        </Text>
-                                    </View>
-                                ) : null}
-                            </View>
-                        )}
-
                         {/* Stats */}
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
@@ -672,18 +401,15 @@ export default function MyBooksScreen() {
             </ScrollView>
 
             {/* Loading overlay for Find */}
-            {/* Loading overlay for Find or TikTok Submit */}
             {isLoading && (
                 <View style={styles.loadingOverlay}>
                     <View style={styles.loadingCard}>
                         <ActivityIndicator size="large" color="#4A90A4" />
                         <Text style={styles.loadingTitle}>
-                            {dott ? "Adding Books..." : "Finding Libraries..."}
+                            Finding Libraries...
                         </Text>
                         <Text style={styles.loadingSubtitle}>
-                            {dott
-                                ? "Processing TikTok video"
-                                : "Checking availability nearby"}
+                            Checking availability nearby
                         </Text>
                     </View>
                 </View>
@@ -789,25 +515,6 @@ export default function MyBooksScreen() {
                         </Text>
 
                         <View style={styles.previewActions}>
-                            {/* Show Add to TBR for search results */}
-                            {!selectedSource && !isInTbr(selectedBook.isbn) && !isInCollection(selectedBook.isbn) && (
-                                <TouchableOpacity
-                                    style={styles.addTbrButton}
-                                    onPress={() => {
-                                        addToTbr(selectedBook);
-                                        setSelectedBook(null);
-                                    }}
-                                >
-                                    <Ionicons
-                                        name="add-circle-outline"
-                                        size={18}
-                                        color="#FFF"
-                                    />
-                                    <Text style={styles.addTbrButtonText}>
-                                        Add to TBR
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
                             {/* Show Mark as Read for TBR books */}
                             {selectedSource === "tbr" && (
                                 <TouchableOpacity
@@ -861,11 +568,6 @@ const styles = StyleSheet.create({
         color: "#1A1A2E",
         marginBottom: 12,
     },
-    searchRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-    },
     searchContainer: {
         flex: 1,
         flexDirection: "row",
@@ -882,59 +584,6 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: "#333",
-    },
-    tiktokButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: "#F5F5F5",
-        justifyContent: "center",
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: "#E8E8E8",
-    },
-    tiktokButtonActive: {
-        backgroundColor: "#1A1A2E",
-        borderColor: "#1A1A2E",
-    },
-    tiktokInputContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 10,
-        gap: 10,
-    },
-    tiktokInputWrapper: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#F5F5F5",
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        height: 44,
-        borderWidth: 1,
-        borderColor: "#1A1A2E",
-    },
-    tiktokInput: {
-        flex: 1,
-        fontSize: 14,
-        color: "#333",
-    },
-    submitButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: "#E07A5F",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#E07A5F",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-    submitButtonDisabled: {
-        backgroundColor: "#CCC",
-        shadowOpacity: 0,
     },
     scrollView: {
         flex: 1,
@@ -1194,21 +843,6 @@ const styles = StyleSheet.create({
         marginTop: 16,
         flexDirection: "row",
         gap: 10,
-    },
-    addTbrButton: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#6D28D9",
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 8,
-    },
-    addTbrButtonText: {
-        color: "#FFF",
-        fontSize: 14,
-        fontWeight: "700",
     },
     readButton: {
         flex: 1,
