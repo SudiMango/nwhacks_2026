@@ -6,7 +6,7 @@ from ..service.google_books_service import GoogleBooksService
 from ..service.library_service import LibraryService
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/books", tags=["book"])
+router = APIRouter(prefix="/get-book", tags=["book"])
 
 get_book_service = GetBookService()
 google_books_service = GoogleBooksService()

@@ -184,7 +184,7 @@ export async function findBookLibraries(
   maxDistance: number = 15
 ): Promise<any> {
   try {
-    const url = `${API_BASE_URL}/books/find?isbn=${encodeURIComponent(isbn)}&lat=${latitude}&lng=${longitude}&max_distance=${maxDistance}`;
+    const url = `${API_BASE_URL}/get-book/find?isbn=${encodeURIComponent(isbn)}&lat=${latitude}&lng=${longitude}&max_distance=${maxDistance}`;
     console.log('Finding libraries at:', url);
     
     const response = await fetch(url, {
