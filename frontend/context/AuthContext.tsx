@@ -117,37 +117,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const signUp = async (email: string, password: string) => {
-        setIsLoading(true);
+  const signUp = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/users/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        let detail = "Sign up failed";
         try {
-            const response = await fetch(`${BACKEND_URL}/users/signup`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
-            });
+          const err = await response.json();
+          detail = err.detail || detail;
+        } catch (e) {
+          detail = `${detail}: ${response.status}`;
+        }
+        throw new Error(detail);
+      }
 
-            const response2 = await fetch(`${BACKEND_URL}/users/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
-            });
+      const response2 = await fetch(`${BACKEND_URL}/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-            console.log(response2);
-            const data = await response2.json();
+      let accessToken: string | undefined;
+      if (response2.ok) {
+        try {
+          const data = await response2.json();
+          accessToken = data?.accessToken;
+        } catch (e) {
+          throw new Error("Login response was not valid JSON");
+        }
+      } else {
+        let detail = "Sign up failed";
+        try {
+          const err = await response2.json();
+          detail = err.detail || detail;
+        } catch (e) {
+          detail = `${detail}: ${response2.status}`;
+        }
+        throw new Error(detail);
+      }
 
-            if (!response2.ok) {
-                throw new Error(data.detail || "Sign up failed");
-            }
+      if (!accessToken) {
+        throw new Error("No access token in response");
+      }
 
-            const { accessToken } = data;
-            if (!accessToken) {
-                throw new Error("No access token in response");
-            }
+      await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
 
-            await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
-
-            // Fetch user profile after successful signup
-            const profileResponse = await fetchWithAuth("/users/me");
+      // Fetch user profile after successful signup
+      const profileResponse = await fetchWithAuth("/users/me");
             if (profileResponse.ok) {
                 const profile = await profileResponse.json();
                 setUser(profile);
