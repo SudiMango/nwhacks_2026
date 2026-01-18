@@ -109,7 +109,7 @@ export default function BookTab() {
                 style={styles.container}
                 contentContainerStyle={[
                     styles.scrollContent,
-                    { paddingTop: insets.top + 20 },
+                    { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 120 },
                 ]}
                 showsVerticalScrollIndicator={false}
             >
