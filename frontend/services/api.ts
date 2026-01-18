@@ -185,7 +185,7 @@ export async function searchBooks(
             isbn: book.isbn || book.id || "",
             title: book.title || "",
             author: book.author || "",
-            coverUrl: book.cover_url || "",
+            cover_url: book.cover_url || "",
             description: book.description || "",
         }));
     } catch (error: any) {

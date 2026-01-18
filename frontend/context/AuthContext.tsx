@@ -36,7 +36,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function fetchWithAuth(
+export async function fetchWithAuth(
     endpoint: string,
     options: RequestInit = {}
 ): Promise<Response> {
