@@ -38,7 +38,9 @@ if (
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BOOK_WIDTH = (SCREEN_WIDTH - 60) / 3;
+const HORIZONTAL_PADDING = 16;
+const BOOK_GAP = 12;
+const BOOK_WIDTH = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - BOOK_GAP * 2) / 3;
 const BOOK_HEIGHT = BOOK_WIDTH * 1.5;
 
 interface BookCardProps {
@@ -94,9 +96,11 @@ export default function MyBooksScreen() {
         removeFromCollection,
         moveToCollection,
         addToTbr,
+        isInTbr,
+        isInCollection,
         searchQuery,
         setSearchQuery,
-        loadBooks,
+        refreshBooks,
     } = useBooks();
 
     // TikTok URL input state
@@ -148,7 +152,7 @@ export default function MyBooksScreen() {
                 );
                 setTiktokUrl("");
                 setShowTiktokInput(false);
-                loadBooks();
+                refreshBooks();
             } else {
                 Alert.alert(
                     "No Books Found",
@@ -605,9 +609,10 @@ export default function MyBooksScreen() {
                                                         book.isbn || book.title
                                                     }
                                                     book={book}
-                                                    onPress={() =>
-                                                        setSelectedBook(book)
-                                                    }
+                                                    onPress={() => {
+                                                        setSelectedBook(book);
+                                                        setSelectedSource(null);
+                                                    }}
                                                     onLongPress={() =>
                                                         addToTbr(book)
                                                     }
@@ -781,6 +786,26 @@ export default function MyBooksScreen() {
                         </Text>
 
                         <View style={styles.previewActions}>
+                            {/* Show Add to TBR for search results */}
+                            {!selectedSource && !isInTbr(selectedBook.isbn) && !isInCollection(selectedBook.isbn) && (
+                                <TouchableOpacity
+                                    style={styles.addTbrButton}
+                                    onPress={() => {
+                                        addToTbr(selectedBook);
+                                        setSelectedBook(null);
+                                    }}
+                                >
+                                    <Ionicons
+                                        name="add-circle-outline"
+                                        size={18}
+                                        color="#FFF"
+                                    />
+                                    <Text style={styles.addTbrButtonText}>
+                                        Add to TBR
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                            {/* Show Mark as Read for TBR books */}
                             {selectedSource === "tbr" && (
                                 <TouchableOpacity
                                     style={styles.readButton}
@@ -796,19 +821,6 @@ export default function MyBooksScreen() {
                                     </Text>
                                 </TouchableOpacity>
                             )}
-                            <TouchableOpacity
-                                style={styles.buyButton}
-                                onPress={handlePurchase}
-                            >
-                                <Ionicons
-                                    name="cart-outline"
-                                    size={18}
-                                    color="#0F1115"
-                                />
-                                <Text style={styles.buyButtonText}>
-                                    Buy on Bookshop
-                                </Text>
-                            </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.findButton}
                                 onPress={handleFindOnMap}
@@ -834,7 +846,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#F8F9FA",
     },
     header: {
-        paddingHorizontal: 10,
+        paddingHorizontal: HORIZONTAL_PADDING,
         paddingBottom: 15,
         backgroundColor: "#FFF",
         borderBottomWidth: 1,
@@ -932,7 +944,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        paddingHorizontal: 40,
+        paddingHorizontal: HORIZONTAL_PADDING * 2,
         paddingTop: 80,
     },
     emptyTitle: {
@@ -954,8 +966,8 @@ const styles = StyleSheet.create({
     sectionHeader: {
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 20,
-        marginBottom: 16,
+        paddingHorizontal: HORIZONTAL_PADDING,
+        marginBottom: 12,
     },
     sectionTitle: {
         fontSize: 18,
@@ -978,12 +990,12 @@ const styles = StyleSheet.create({
     bookGrid: {
         flexDirection: "row",
         flexWrap: "wrap",
-        paddingHorizontal: 15,
+        paddingHorizontal: HORIZONTAL_PADDING,
+        gap: BOOK_GAP,
     },
     bookCard: {
         width: BOOK_WIDTH,
-        marginHorizontal: 5,
-        marginBottom: 16,
+        marginBottom: 4,
     },
     bookCoverContainer: {
         position: "relative",
@@ -994,9 +1006,9 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     bookCover: {
-        width: BOOK_WIDTH,
+        width: "100%",
         height: BOOK_HEIGHT,
-        borderRadius: 4,
+        borderRadius: 8,
         backgroundColor: "#E8E8E8",
     },
     bookBadge: {
@@ -1012,22 +1024,22 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     bookTitle: {
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: "600",
-        color: "#333",
-        marginTop: 8,
-        lineHeight: 16,
+        color: "#1A1A2E",
+        marginTop: 6,
+        lineHeight: 14,
     },
     bookAuthor: {
         fontSize: 10,
-        color: "#888",
+        color: "#6B7280",
         marginTop: 2,
     },
     shelfLine: {
         height: 6,
         backgroundColor: "#F0D5CF",
-        marginHorizontal: 15,
-        marginTop: 8,
+        marginHorizontal: HORIZONTAL_PADDING,
+        marginTop: 12,
         borderRadius: 3,
     },
     hintText: {
@@ -1050,8 +1062,8 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
-        marginTop: 30,
-        marginHorizontal: 40,
+        marginTop: 24,
+        marginHorizontal: HORIZONTAL_PADDING,
         paddingVertical: 16,
         backgroundColor: "#FFF",
         borderRadius: 16,
@@ -1179,6 +1191,21 @@ const styles = StyleSheet.create({
         marginTop: 16,
         flexDirection: "row",
         gap: 10,
+    },
+    addTbrButton: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#6D28D9",
+        paddingVertical: 12,
+        borderRadius: 12,
+        gap: 8,
+    },
+    addTbrButtonText: {
+        color: "#FFF",
+        fontSize: 14,
+        fontWeight: "700",
     },
     readButton: {
         flex: 1,

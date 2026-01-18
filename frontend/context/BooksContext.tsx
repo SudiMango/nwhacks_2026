@@ -15,19 +15,19 @@ import {
 } from "@/services/api";
 
 interface BooksContextType {
-    tbrBooks: Book[];
-    collectionBooks: Book[];
-    isLoading: boolean;
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
-    addToTbr: (book: Book) => Promise<void>;
-    removeFromTbr: (isbn: string) => Promise<void>;
-    isInTbr: (isbn: string) => boolean;
-    moveToCollection: (isbn: string) => Promise<void>;
-    addToCollection: (book: Book) => Promise<void>;
-    removeFromCollection: (isbn: string) => Promise<void>;
-    isInCollection: (isbn: string) => boolean;
-    loadBooks: () => any;
+  tbrBooks: Book[];
+  collectionBooks: Book[];
+  isLoading: boolean;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  addToTbr: (book: Book) => Promise<void>;
+  removeFromTbr: (isbn: string) => Promise<void>;
+  isInTbr: (isbn: string) => boolean;
+  moveToCollection: (isbn: string) => Promise<void>;
+  addToCollection: (book: Book) => Promise<void>;
+  removeFromCollection: (isbn: string) => Promise<void>;
+  isInCollection: (isbn: string) => boolean;
+  refreshBooks: () => Promise<void>;
 }
 
 const BooksContext = createContext<BooksContextType | undefined>(undefined);
@@ -105,27 +105,27 @@ export function BooksProvider({ children }: { children: ReactNode }) {
     const isInCollection = (isbn: string) =>
         collectionBooks.some((b) => b.isbn === isbn);
 
-    return (
-        <BooksContext.Provider
-            value={{
-                tbrBooks,
-                collectionBooks,
-                isLoading,
-                searchQuery,
-                setSearchQuery,
-                addToTbr,
-                removeFromTbr,
-                isInTbr,
-                moveToCollection,
-                addToCollection,
-                removeFromCollection,
-                isInCollection,
-                loadBooks,
-            }}
-        >
-            {children}
-        </BooksContext.Provider>
-    );
+  return (
+    <BooksContext.Provider
+      value={{
+        tbrBooks,
+        collectionBooks,
+        isLoading,
+        searchQuery,
+        setSearchQuery,
+        addToTbr,
+        removeFromTbr,
+        isInTbr,
+        moveToCollection,
+        addToCollection,
+        removeFromCollection,
+        isInCollection,
+        refreshBooks: loadBooks,
+      }}
+    >
+      {children}
+    </BooksContext.Provider>
+  );
 }
 
 function findBookIdByIsbn(list: Book[], isbn: string): string | undefined {

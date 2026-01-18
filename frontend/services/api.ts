@@ -86,7 +86,7 @@ export async function addUserBookToTbr(
         description: book.description,
     };
 
-    const response = await fetch(`${API_BASE_URL}/users/${userId}/tbr`, {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/tbr/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -12,12 +12,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '@/context/AuthContext';
+import { useBooks } from '@/context/BooksContext';
 import { genres } from '@/data/genres';
 import { updateFavoriteGenres, updateLastBookRead } from '@/services/api';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const { tbrBooks, collectionBooks } = useBooks();
 
   const displayName = user?.name?.trim() || 'Reader';
   const username = user?.email ? user.email.split('@')[0] : 'reader';
@@ -188,6 +190,33 @@ export default function ProfileScreen() {
           </View>
         )}
       </View>
+
+      {/* Reading Stats */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Reading Stats</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{tbrBooks.length}</Text>
+            <Text style={styles.statLabel}>To Read</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{collectionBooks.length}</Text>
+            <Text style={styles.statLabel}>Read</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{tbrBooks.length + collectionBooks.length}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Sign Out Button */}
+      <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
+        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+        <Text style={styles.signOutText}>Sign Out</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -382,5 +411,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     fontStyle: 'italic',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E5E7EB',
+  },
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  signOutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#EF4444',
   },
 });
