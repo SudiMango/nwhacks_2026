@@ -643,30 +643,6 @@ export default function MyBooksScreen() {
                                 ) : null}
                             </View>
                         )}
-
-                        {/* Stats */}
-                        <View style={styles.statsContainer}>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statNumber}>
-                                    {tbrBooks.length}
-                                </Text>
-                                <Text style={styles.statLabel}>To Read</Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <Text style={styles.statNumber}>
-                                    {collectionBooks.length}
-                                </Text>
-                                <Text style={styles.statLabel}>Read</Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
-                                <Text style={styles.statNumber}>
-                                    {tbrBooks.length + collectionBooks.length}
-                                </Text>
-                                <Text style={styles.statLabel}>Total</Text>
-                            </View>
-                        </View>
                     </>
                 )}
             </ScrollView>
