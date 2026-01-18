@@ -429,8 +429,8 @@ export default function MyBooksScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {!hasBooks ? (
-                    /* Empty State - No books at all */
+                {!hasBooks && !searchQuery.trim() ? (
+                    /* Empty State - No books at all and no search */
                     <View style={styles.emptyState}>
                         <Ionicons name="book-outline" size={80} color="#CCC" />
                         <Text style={styles.emptyTitle}>

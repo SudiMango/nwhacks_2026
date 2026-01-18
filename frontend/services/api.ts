@@ -314,13 +314,19 @@ export async function searchBooks(
         const data = await response.json();
         console.log("Search books response:", data);
 
-        if (!data.books || !Array.isArray(data.books)) {
+        // Handle both { books: [...] } and direct array response
+        let booksArray = data.books;
+        if (!booksArray && Array.isArray(data)) {
+            booksArray = data;
+        }
+
+        if (!booksArray || !Array.isArray(booksArray)) {
             console.warn("Invalid response format:", data);
             return [];
         }
 
         // Convert Google Books API format to our Book format
-        return data.books.map((book: any) => ({
+        return booksArray.map((book: any) => ({
             isbn: book.isbn || book.id || "",
             title: book.title || "",
             author: book.author || "",
