@@ -8,7 +8,7 @@ import React, {
 import * as SecureStore from "expo-secure-store";
 import { Alert } from "react-native";
 
-const BACKEND_URL = "http://10.19.134.189:8000";
+const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL;
 const TOKEN_KEY = "auth_token";
 
 export interface UserProfile {
