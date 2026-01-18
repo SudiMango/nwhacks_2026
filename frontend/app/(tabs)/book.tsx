@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,100 +7,158 @@ import {
   Image,
   ScrollView,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { mockBooks, mockLibraries, Book } from '@/data/mockData';
+import { mockBooks, Book } from '@/data/mockData';
 import { useBooks } from '@/context/BooksContext';
+import { useAuth } from '@/context/AuthContext';
+import { getRecommendations } from '@/services/api';
 
 export default function BookTab() {
   const insets = useSafeAreaInsets();
   const { addToTbr, isInTbr } = useBooks();
-  const [selectedBook, setSelectedBook] = useState<Book>(mockBooks[0]);
+  const { user } = useAuth();
+  const [recommended, setRecommended] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
-  const handleAddBook = useCallback(() => {
-    addToTbr(selectedBook);
-  }, [addToTbr, selectedBook]);
+  useEffect(() => {
+    const fetchRecs = async () => {
+      if (!user?.id) {
+        setRecommended(mockBooks.slice(0, 8));
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const data = await getRecommendations(user.id);
+        if (data?.recommendations?.length) {
+          const mapped = data.recommendations.map((b: any) => ({
+            ...b,
+            coverUrl: b.cover_url || b.coverUrl || 'https://placehold.co/110x165?text=No+Cover',
+          }));
+          setRecommended(mapped.slice(0, 8));
+        } else {
+          setRecommended(mockBooks.slice(0, 8));
+        }
+      } catch (e) {
+        console.warn('Failed to fetch recommendations', e);
+        setRecommended(mockBooks.slice(0, 8));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRecs();
+  }, [user]);
 
-  const handlePurchase = useCallback(() => {
-    const query = encodeURIComponent(`${selectedBook.title} ${selectedBook.author}`);
+  const handleAddBook = useCallback(
+    async (book: Book) => {
+      addToTbr(book);
+    },
+    [addToTbr],
+  );
+
+  const handlePurchase = useCallback((book: Book) => {
+    const query = encodeURIComponent(`${book.title} ${book.author}`);
     Linking.openURL(`https://bookshop.org/search?keywords=${query}`);
-  }, [selectedBook]);
+  }, []);
 
-  const selectNextBook = useCallback(() => {
-    const currentIndex = mockBooks.findIndex((b) => b.isbn === selectedBook.isbn);
-    const nextIndex = (currentIndex + 1) % mockBooks.length;
-    setSelectedBook(mockBooks[nextIndex]);
-  }, [selectedBook]);
-
-  const isSaved = isInTbr(selectedBook.isbn);
-
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 20 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>See Book</Text>
-        <Text style={styles.subtitle}>From BookTok to your shelf</Text>
-      </View>
-
-      <View style={styles.bookCard}>
+  const renderBookCard = (book: Book) => {
+    const isSaved = isInTbr(book.isbn);
+    return (
+      <TouchableOpacity
+        key={book.isbn || book.title}
+        style={styles.bookCard}
+        activeOpacity={0.85}
+        onPress={() => setSelectedBook(book)}
+      >
         <Image
-          source={{ uri: selectedBook.coverUrl }}
+          source={{ uri: book.coverUrl || 'https://placehold.co/110x165?text=No+Cover' }}
           style={styles.bookCover}
           resizeMode="cover"
         />
         <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle}>{selectedBook.title}</Text>
-          <Text style={styles.bookAuthor}>{selectedBook.author}</Text>
-          {(selectedBook as any).tiktokSource && (
-            <Text style={styles.tiktokSource}>
-              Found from BookTok video by {(selectedBook as any).tiktokSource}
+          <Text style={styles.bookTitle}>{book.title}</Text>
+          <Text style={styles.bookAuthor}>{book.author}</Text>
+          {book.description ? (
+            <Text style={styles.bookDescription} numberOfLines={3}>
+              {book.description}
             </Text>
-          )}
-
-          <TouchableOpacity
-            style={[styles.addButton, isSaved && styles.addButtonDisabled]}
-            onPress={handleAddBook}
-            disabled={isSaved}
-          >
-            <Text style={styles.addButtonText}>
-              {isSaved ? 'Added to My Books' : 'Add to My Books'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.buyButton} onPress={handlePurchase}>
-            <Text style={styles.buyButtonText}>Buy on Bookshop.org</Text>
-          </TouchableOpacity>
+          ) : null}
+          {book.rating ? (
+            <Text style={styles.bookRating}>{`Rating: ${book.rating.toFixed(1)}/5`}</Text>
+          ) : null}
         </View>
-      </View>
-
-      <TouchableOpacity style={styles.nextButton} onPress={selectNextBook}>
-        <Text style={styles.nextButtonText}>See Another Book</Text>
       </TouchableOpacity>
+    );
+  };
 
-      <View style={styles.libraryInfo}>
-        <Text style={styles.libraryInfoTitle}>Nearby Places</Text>
-        {mockLibraries.slice(0, 3).map((library) => (
-          <View key={library.id} style={styles.libraryItem}>
-            <View
-              style={[
-                styles.libraryDot,
-                {
-                  backgroundColor: library.type === 'library' ? '#4A90A4' : '#E07A5F',
-                },
-              ]}
-            />
-            <Text style={styles.libraryName}>{library.name}</Text>
-            <Text style={styles.libraryType}>
-              {library.type === 'library' ? 'Library' : 'Bookstore'}
-            </Text>
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFF' }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>See Book</Text>
+          <Text style={styles.subtitle}>Recommended for you</Text>
+        </View>
+
+        {isLoading ? (
+          <View style={styles.loader}>
+            <ActivityIndicator size="large" color="#4A90A4" />
+            <Text style={styles.loadingText}>Loading recommendations...</Text>
           </View>
-        ))}
-      </View>
-    </ScrollView>
+        ) : (
+          recommended.map(renderBookCard)
+        )}
+      </ScrollView>
+
+      {selectedBook && (
+        <View style={styles.overlay} pointerEvents="box-none">
+          <TouchableOpacity style={styles.overlayBack} activeOpacity={1} onPress={() => setSelectedBook(null)} />
+          <View style={styles.previewContainer}>
+            <ScrollView contentContainerStyle={styles.previewCard}>
+              <View style={styles.previewHeader}>
+                <Image
+                  source={{ uri: selectedBook.coverUrl || 'https://placehold.co/120x170?text=No+Cover' }}
+                  style={styles.previewCover}
+                />
+                <View style={styles.previewText}>
+                  <Text style={styles.previewTitle}>{selectedBook.title}</Text>
+                  <Text style={styles.previewAuthor}>{selectedBook.author}</Text>
+                  {selectedBook.rating ? (
+                    <Text style={styles.previewRating}>{`Rating: ${selectedBook.rating.toFixed(1)}/5`}</Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity onPress={() => setSelectedBook(null)}>
+                  <Text style={styles.closeText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {selectedBook.description ? (
+                <Text style={styles.previewDescription}>{selectedBook.description}</Text>
+              ) : null}
+              <View style={styles.previewActions}>
+                <TouchableOpacity
+                  style={[styles.addButton, isInTbr(selectedBook.isbn) && styles.addButtonDisabled]}
+                  onPress={() => handleAddBook(selectedBook)}
+                  disabled={isInTbr(selectedBook.isbn)}
+                >
+                  <Text style={styles.addButtonText}>
+                    {isInTbr(selectedBook.isbn) ? 'In My Books' : 'Add to My Books'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.buyButton} onPress={() => handlePurchase(selectedBook)}>
+                  <Text style={styles.buyButtonText}>Buy</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -133,9 +191,10 @@ const styles = StyleSheet.create({
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    marginBottom: 12,
   },
   bookCover: {
     width: 110,
@@ -147,6 +206,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16,
     justifyContent: 'center',
+    gap: 6,
   },
   bookTitle: {
     fontSize: 18,
@@ -158,13 +218,23 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 8,
   },
-  tiktokSource: {
+  bookDescription: {
     fontSize: 12,
-    color: '#888',
-    marginBottom: 12,
-    fontStyle: 'italic',
+    color: '#555',
+    marginTop: 4,
+  },
+  bookRating: {
+    fontSize: 12,
+    color: '#1A1A2E',
+    fontWeight: '600',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
   },
   addButton: {
+    flex: 1,
     backgroundColor: '#4A90A4',
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -180,7 +250,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buyButton: {
-    marginTop: 10,
+    flex: 1,
     backgroundColor: '#0F172A',
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -192,58 +262,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  nextButton: {
-    marginTop: 16,
-    paddingVertical: 12,
+  loader: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 12,
-    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    paddingVertical: 40,
   },
-  nextButtonText: {
+  loadingText: {
+    marginTop: 8,
     color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
   },
-  libraryInfo: {
-    marginTop: 24,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayBack: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  previewContainer: {
+    maxHeight: '70%',
+    width: '90%',
     backgroundColor: '#FFF',
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 10,
   },
-  libraryInfoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A2E',
-    marginBottom: 12,
+  previewCard: {
+    padding: 16,
+    gap: 10,
   },
-  libraryItem: {
+  previewHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  libraryDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 12,
+  previewCover: {
+    width: 110,
+    height: 160,
+    borderRadius: 8,
+    backgroundColor: '#E8E8E8',
   },
-  libraryName: {
+  previewText: {
     flex: 1,
-    fontSize: 14,
-    color: '#333',
+    gap: 4,
   },
-  libraryType: {
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  previewAuthor: {
+    fontSize: 13,
+    color: '#555',
+  },
+  previewRating: {
     fontSize: 12,
-    color: '#888',
+    color: '#1A1A2E',
+    fontWeight: '700',
+  },
+  closeText: {
+    fontSize: 18,
+    color: '#666',
+  },
+  previewDescription: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#444',
+    lineHeight: 18,
+  },
+  previewActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
   },
 });

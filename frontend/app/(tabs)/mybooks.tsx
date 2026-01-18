@@ -437,7 +437,9 @@ export default function MyBooksScreen() {
                         setSelectedBook(book);
                         setSelectedSource('collection');
                       }}
-                      onLongPress={() => removeFromCollection(book.isbn)}
+                      onLongPress={() => {
+                        removeFromCollection(book.isbn);
+                      }}
                       badgeIcon="checkmark-circle"
                       badgeColor="#4A90A4"
                     />

@@ -6,6 +6,9 @@ export interface Book {
   author: string;
   coverUrl: string;
   description?: string;
+  book_id?: string;
+  bookId?: string;
+  tbr?: boolean;
   // Optional metadata for quick views
   rating?: number;
   genre?: string;

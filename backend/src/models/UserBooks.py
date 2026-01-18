@@ -22,3 +22,5 @@ class UserBook(Base):
     tbr = Column(Boolean, nullable=False, default=True)
 
     added_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Link to the underlying book metadata so we can return full details with user_books rows
+    book = relationship("Book", primaryjoin="UserBook.isbn == Book.isbn", lazy="joined")

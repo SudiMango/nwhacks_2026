@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { genres } from '@/data/genres';
-import { updateFavoriteGenres } from '@/services/api';
+import { updateFavoriteGenres, generateRecommendations } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function OnboardingGenresScreen() {
@@ -33,6 +33,10 @@ export default function OnboardingGenresScreen() {
       setIsSaving(true);
       if (user?.id && selectedGenres.length > 0) {
         await updateFavoriteGenres(user.id, selectedGenres);
+        // Kick off recommendations generation (fire-and-forget)
+        generateRecommendations(user.id).catch((err) =>
+          console.warn('Failed to generate recommendations', err),
+        );
       }
     } catch (error) {
       console.warn('Failed to save favorite genres', error);

@@ -25,7 +25,6 @@ class RecommendationRepository:
         return (
             db.query(UserRecommendation)
             .filter(UserRecommendation.user_id == user_id)
-            .order_by(UserRecommendation.created_at.desc())
             .all()
         )
 
