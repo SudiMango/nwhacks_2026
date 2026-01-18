@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const displayName = user?.name?.trim() || 'Reader';
   const username = user?.email ? user.email.split('@')[0] : 'reader';
   const initials = displayName.slice(0, 1).toUpperCase();
+  const yearJoined = user?.createdAt ? new Date(user.createdAt).getFullYear() : null;
 
   // State for editing
   const [isEditingGenres, setIsEditingGenres] = useState(false);
@@ -123,6 +124,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.name}>{displayName}</Text>
         <Text style={styles.username}>@{username}</Text>
+        {yearJoined && <Text style={styles.yearJoined}>Joined {yearJoined}</Text>}
       </View>
 
       {/* Last Book Read Section */}
@@ -138,6 +140,7 @@ export default function ProfileScreen() {
             onChangeText={setLastBook}
             onBlur={handleSaveLastBook}
             returnKeyType="done"
+            editable={!lastBook.trim()}
           />
         </View>
       </View>
@@ -377,6 +380,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
+  },
+  yearJoined: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   section: {
     backgroundColor: '#FFFFFF',

@@ -107,6 +107,7 @@ export default function OnboardingLastBookScreen() {
             multiline
             numberOfLines={2}
             textAlignVertical="center"
+            editable={!lastBook.trim()}
           />
         </View>
 
