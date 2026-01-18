@@ -1,5 +1,5 @@
 import { Book } from "@/data/mockData";
-
+import { fetchWithAuth } from "@/context/AuthContext";
 // Configure your backend URL here
 // For mobile devices, use your computer's IP address instead of localhost
 // e.g., 'http://192.168.1.100:8000'
@@ -7,10 +7,7 @@ const API_BASE_URL =
     process.env.EXPO_PUBLIC_API_URL || "http://10.19.134.189:8000";
 
 export interface VideoSubmitResponse {
-    success: boolean;
-    videoId: string;
     books: Book[];
-    message?: string;
 }
 
 export interface ApiError {
@@ -210,25 +207,25 @@ export async function updateLastBookRead(
 export async function submitTikTokUrl(
     url: string
 ): Promise<VideoSubmitResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/videos`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            url,
-            platform: "tiktok",
-        }),
-    });
+    try {
+        const response = await fetchWithAuth("/get-book/from-tiktok", {
+            method: "POST",
+            body: JSON.stringify({
+                tiktok_url: url,
+            }),
+        });
 
-    if (!response.ok) {
-        const error = await response
-            .json()
-            .catch(() => ({ message: "Failed to submit video" }));
-        throw new Error(error.message || "Failed to submit video");
+        if (!response.ok) {
+            throw new Error(
+                `HTTP ${response.status}: ${await response.text()}`
+            );
+        }
+
+        return response.json();
+    } catch (error) {
+        console.error("submitTikTokUrl error:", error);
+        throw error;
     }
-
-    return response.json();
 }
 
 /**
@@ -308,7 +305,7 @@ export async function searchBooks(
             isbn: book.isbn || book.id || "",
             title: book.title || "",
             author: book.author || "",
-            coverUrl: book.cover_url || "",
+            cover_url: book.cover_url || "",
             description: book.description || "",
         }));
     } catch (error: any) {
@@ -377,4 +374,58 @@ export function isValidTikTokUrl(url: string): boolean {
     ];
 
     return tiktokPatterns.some((pattern) => pattern.test(url));
+}
+
+export interface RecommendedBook {
+    id: string | null;
+    title: string;
+    author: string;
+    description: string;
+    cover_url: string;
+    isbn: string | null;
+    page_count: number | null;
+    published_date: string;
+    categories?: string[];
+    recommended_title?: string;
+    recommended_author?: string;
+    not_found_on_google_books?: boolean;
+}
+
+/**
+ * Get AI-powered book recommendations based on a natural language query
+ */
+export async function getBookRecommendations(
+    query: string,
+    favoriteGenres?: string[],
+    recentBooks?: string[],
+    count: number = 5
+): Promise<RecommendedBook[]> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/get-book/recommend`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                query,
+                favorite_genres: favoriteGenres,
+                recent_books: recentBooks,
+                count,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Recommend books error:", response.status, errorText);
+            throw new Error(`Failed to get recommendations: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Recommendations response:", data);
+
+        return data.books || [];
+    } catch (error: any) {
+        console.error("Error getting recommendations:", error);
+        throw error;
+    }
 }
