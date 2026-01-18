@@ -1,6 +1,6 @@
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -52,11 +52,14 @@ def set_user_name(user_id: UUID, request: NameRequest, db: Session = Depends(get
 @router.get("/{user_id}/recommendations")
 def get_recommendations(user_id: UUID, db: Session = Depends(get_db)):
   user = user_service._get_user_or_404(db, user_id)
-  books = recs_service.generate_and_store(
+  if not user.onboarding_completed:
+    raise HTTPException(
+      status_code=status.HTTP_400_BAD_REQUEST,
+      detail="Complete onboarding before fetching recommendations.",
+    )
+  books = recs_service.get_or_generate(
     db,
-    user_id,
-    user.favorite_genres or [],
-    user.last_book_read or "",
+    user,
     count=8,
   )
   return {
