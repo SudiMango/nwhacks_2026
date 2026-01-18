@@ -115,3 +115,118 @@ class RecommendationService:
             results.append(book)
 
         return results
+
+    def recommend_from_query(
+        self,
+        query: str,
+        favorite_genres: List[str] = None,
+        recent_books: List[str] = None,
+        count: int = 5,
+    ) -> List[Dict]:
+        """
+        Get AI-powered book recommendations based on a natural language query.
+
+        Args:
+            query: User's natural language query (e.g., "books like Harry Potter", "rainy day reads")
+            favorite_genres: List of user's favorite genre IDs
+            recent_books: List of book titles the user has recently read/added
+            count: Number of books to recommend (default: 5)
+
+        Returns:
+            List of book dictionaries with full details from Google Books
+        """
+        # Build context for the prompt
+        context_parts = []
+
+        if favorite_genres and len(favorite_genres) > 0:
+            genres_str = ", ".join(favorite_genres)
+            context_parts.append(f"User's favorite genres: {genres_str}")
+
+        if recent_books and len(recent_books) > 0:
+            books_str = ", ".join(recent_books[:5])
+            context_parts.append(f"Books the user has recently added to their collection: {books_str}")
+
+        context = "\n".join(context_parts) if context_parts else "No additional context about the user."
+
+        prompt = f"""You are a helpful book recommendation assistant. Based on the user's request and their reading preferences, suggest exactly {count} books.
+
+User's Request: "{query}"
+
+User Context:
+{context}
+
+IMPORTANT: Respond ONLY with a valid JSON array of book objects. Each object must have exactly these fields:
+- "title": The full book title
+- "author": The author's name
+
+Do not include any other text, explanation, or markdown formatting. Just the JSON array.
+
+Example format:
+[
+  {{"title": "The Hobbit", "author": "J.R.R. Tolkien"}},
+  {{"title": "Ender's Game", "author": "Orson Scott Card"}}
+]
+
+Now provide {count} book recommendations:"""
+
+        try:
+            raw = self.gemini.generate_content(prompt)
+            print(f"Gemini response for query '{query}': {raw}")
+
+            # Parse the JSON response
+            cleaned = raw.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("```", 2)[1]
+                if cleaned.startswith("json"):
+                    cleaned = cleaned[4:]
+
+            # Try to find JSON array in the response
+            import re
+            array_match = re.search(r'\[[\s\S]*\]', cleaned)
+            if array_match:
+                cleaned = array_match.group(0)
+
+            recommendations = json.loads(cleaned)
+
+            if not isinstance(recommendations, list):
+                print(f"Expected list, got {type(recommendations)}")
+                return []
+
+            # Enrich each recommendation with Google Books data
+            enriched_books = []
+            for rec in recommendations[:count]:
+                title = rec.get("title", "")
+                author = rec.get("author", "")
+
+                if not title:
+                    continue
+
+                # Search Google Books for this specific book
+                search_query = f"{title} {author}".strip()
+                books = self.google.search_books(search_query, max_results=3)
+
+                if books:
+                    best_match = books[0]
+                    best_match["recommended_title"] = title
+                    best_match["recommended_author"] = author
+                    enriched_books.append(best_match)
+                else:
+                    # If Google Books doesn't have it, still include basic info
+                    enriched_books.append({
+                        "id": None,
+                        "title": title,
+                        "author": author,
+                        "description": "",
+                        "cover_url": "",
+                        "isbn": None,
+                        "page_count": None,
+                        "published_date": "",
+                        "categories": [],
+                        "not_found_on_google_books": True
+                    })
+
+            return enriched_books
+
+        except Exception as e:
+            print(f"Error getting query-based recommendations: {e}")
+            return []

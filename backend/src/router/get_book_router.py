@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import List, Optional
 from ..util.db import get_db
 from ..service.get_book_service import GetBookService
 from ..service.google_books_service import GoogleBooksService
 from ..service.library_service import LibraryService
+from ..service.recommendation_service import RecommendationService
 from pydantic import BaseModel
 from ..models.User import User
 from ..util.auth_state import get_current_user
@@ -13,6 +15,7 @@ router = APIRouter(prefix="/get-book", tags=["book"])
 get_book_service = GetBookService()
 google_books_service = GoogleBooksService()
 library_service = LibraryService()
+recommendation_service = RecommendationService()
 
 class TikTokLinkRequest(BaseModel):
     tiktok_url: str
@@ -51,12 +54,12 @@ async def find_book_at_libraries(
 ):
     """
     Find nearby libraries and check book availability
-    
+
     - **isbn**: Book ISBN (e.g., "9780358434733")
     - **lat**: User's latitude
     - **lng**: User's longitude
     - **max_distance**: Maximum distance to search in km (default: 20)
-    
+
     Returns a list of nearby libraries with availability status, holds, copies, etc.
     """
     libraries = await library_service.find_book_at_libraries(isbn, lat, lng, max_distance)
@@ -65,4 +68,36 @@ async def find_book_at_libraries(
         "location": {"lat": lat, "lng": lng},
         "count": len(libraries),
         "libraries": libraries
+    }
+
+
+class RecommendRequest(BaseModel):
+    query: str
+    favorite_genres: Optional[List[str]] = None
+    recent_books: Optional[List[str]] = None
+    count: int = 5
+
+
+@router.post("/recommend", summary="Get AI-powered book recommendations")
+def recommend_books(request: RecommendRequest):
+    """
+    Get AI-powered book recommendations based on a natural language query.
+
+    - **query**: Natural language query (e.g., "books like Harry Potter", "cozy rainy day reads")
+    - **favorite_genres**: Optional list of user's favorite genre IDs
+    - **recent_books**: Optional list of book titles the user has recently read
+    - **count**: Number of recommendations to return (default: 5)
+
+    Returns a list of recommended books with full details from Google Books API.
+    """
+    books = recommendation_service.recommend_from_query(
+        query=request.query,
+        favorite_genres=request.favorite_genres,
+        recent_books=request.recent_books,
+        count=request.count
+    )
+    return {
+        "query": request.query,
+        "count": len(books),
+        "books": books
     }
