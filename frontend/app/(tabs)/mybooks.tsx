@@ -96,7 +96,7 @@ export default function MyBooksScreen() {
         addToTbr,
         searchQuery,
         setSearchQuery,
-        fetchMyBooks,
+        loadBooks,
     } = useBooks();
 
     // TikTok URL input state
@@ -148,7 +148,7 @@ export default function MyBooksScreen() {
                 );
                 setTiktokUrl("");
                 setShowTiktokInput(false);
-                fetchMyBooks();
+                loadBooks();
             } else {
                 Alert.alert(
                     "No Books Found",
