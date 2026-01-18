@@ -1,10 +1,4 @@
-import React, {
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    useCallback,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -32,7 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useLocalSearchParams, router } from 'expo-router';
 import { getBookRecommendations, RecommendedBook, findBookLibraries } from '@/services/api';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
@@ -61,7 +55,7 @@ export default function DiscoverScreen() {
 
 
 
-    const location = locationPresets[selectedLocation];
+  const location = locationPresets[selectedLocation];
 
   useEffect(() => {
     const onShow = (e: any) => {
@@ -73,20 +67,20 @@ export default function DiscoverScreen() {
       setKeyboardVisible(false);
     };
 
-        const showSub = Keyboard.addListener(
-            Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-            onShow
-        );
-        const hideSub = Keyboard.addListener(
-            Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-            onHide
-        );
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      onShow,
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      onHide,
+    );
 
-        return () => {
-            showSub.remove();
-            hideSub.remove();
-        };
-    }, []);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Extract specific param values to use as dependencies
   const highlightLibrariesParam = params.highlightLibraries as string | undefined;
@@ -96,19 +90,19 @@ export default function DiscoverScreen() {
   const centerLngParam = params.centerLng as string | undefined;
   const searchIdParam = params.searchId as string | undefined;
 
-    // Parse highlighted libraries from params
-    useEffect(() => {
-        console.log("Search params changed, searchId:", searchIdParam);
+  // Parse highlighted libraries from params
+  useEffect(() => {
+    console.log('Search params changed, searchId:', searchIdParam);
 
-        if (highlightLibrariesParam) {
-            try {
-                const libraries = JSON.parse(highlightLibrariesParam);
-                console.log("Setting highlighted libraries:", libraries.length);
-                setHighlightedLibraries(libraries);
-                setBookInfo({
-                    title: bookTitleParam || "",
-                    author: bookAuthorParam || "",
-                });
+    if (highlightLibrariesParam) {
+      try {
+        const libraries = JSON.parse(highlightLibrariesParam);
+        console.log('Setting highlighted libraries:', libraries.length);
+        setHighlightedLibraries(libraries);
+        setBookInfo({
+          title: bookTitleParam || '',
+          author: bookAuthorParam || '',
+        });
 
         if (centerLatParam && centerLngParam && mapRef.current) {
           const lat = parseFloat(centerLatParam);
@@ -120,49 +114,41 @@ export default function DiscoverScreen() {
             longitudeDelta: 0.1,
           }, 500);
         }
-    }, [
-        highlightLibrariesParam,
-        bookTitleParam,
-        bookAuthorParam,
-        centerLatParam,
-        centerLngParam,
-        searchIdParam,
-    ]);
+      } catch (e) {
+        console.error('Error parsing library data:', e);
+      }
+    } else {
+      setHighlightedLibraries([]);
+      setBookInfo(null);
+    }
+  }, [highlightLibrariesParam, bookTitleParam, bookAuthorParam, centerLatParam, centerLngParam, searchIdParam]);
 
-    useEffect(() => {
-        if (
-            mapRef.current &&
-            location?.region &&
-            highlightedLibraries.length === 0
-        ) {
-            mapRef.current.animateToRegion(location.region, 450);
-        }
-    }, [location, highlightedLibraries]);
+  useEffect(() => {
+    if (mapRef.current && location?.region && highlightedLibraries.length === 0) {
+      mapRef.current.animateToRegion(location.region, 450);
+    }
+  }, [location, highlightedLibraries]);
 
-    useEffect(() => {
-        if (mapRef.current && highlightedLibraries.length > 0) {
-            const coords = highlightedLibraries
-                .filter(
-                    (lib) =>
-                        typeof lib.latitude === "number" &&
-                        typeof lib.longitude === "number"
-                )
-                .map((lib) => ({
-                    latitude: lib.latitude,
-                    longitude: lib.longitude,
-                }));
-            if (coords.length > 0) {
-                mapRef.current.fitToCoordinates(coords, {
-                    edgePadding: { top: 80, bottom: 200, left: 80, right: 80 },
-                    animated: true,
-                });
-            }
-        }
-    }, [highlightedLibraries]);
+  useEffect(() => {
+    if (mapRef.current && highlightedLibraries.length > 0) {
+      const coords = highlightedLibraries
+        .filter((lib) => typeof lib.latitude === 'number' && typeof lib.longitude === 'number')
+        .map((lib) => ({
+          latitude: lib.latitude,
+          longitude: lib.longitude,
+        }));
+      if (coords.length > 0) {
+        mapRef.current.fitToCoordinates(coords, {
+          edgePadding: { top: 80, bottom: 200, left: 80, right: 80 },
+          animated: true,
+        });
+      }
+    }
+  }, [highlightedLibraries]);
 
-    const handleAddToTbr = (book: Book) => {
-        addToTbr(book);
-    };
+  const handleAddToTbr = (book: Book) => {
+    addToTbr(book);
+  };
 
   // Handle AI search
   const handleSearch = async () => {
@@ -253,7 +239,7 @@ export default function DiscoverScreen() {
       isbn: book.isbn || book.id || '',
       title: book.title,
       author: book.author,
-      coverUrl: book.cover_url,
+      cover_url: book.cover_url,
       description: book.description,
     };
     addToTbr(bookForTbr);
@@ -331,35 +317,26 @@ export default function DiscoverScreen() {
             description = statusText;
           }
 
-                    return (
-                        <Marker
-                            key={library.id}
-                            coordinate={{
-                                latitude: library.latitude,
-                                longitude: library.longitude,
-                            }}
-                            title={library.name}
-                            description={description}
-                        >
-                            <View
-                                style={[
-                                    styles.customMarker,
-                                    { backgroundColor: bgColor },
-                                ]}
-                            >
-                                <Ionicons
-                                    name={iconName}
-                                    size={18}
-                                    color="#FFF"
-                                />
-                            </View>
-                            {isHighlighted && availableAtBranch && (
-                                <View style={styles.markerPulse} />
-                            )}
-                        </Marker>
-                    );
-                })}
-            </MapView>
+          return (
+            <Marker
+              key={library.id}
+              coordinate={{
+                latitude: library.latitude,
+                longitude: library.longitude,
+              }}
+              title={library.name}
+              description={description}
+            >
+              <View style={[styles.customMarker, { backgroundColor: bgColor }]}>
+                <Ionicons name={iconName} size={18} color="#FFF" />
+              </View>
+              {isHighlighted && availableAtBranch && (
+                <View style={styles.markerPulse} />
+              )}
+            </Marker>
+          );
+        })}
+      </MapView>
 
       {/* AI Recommendations Results */}
       {recommendations.length > 0 && !keyboardVisible && (
