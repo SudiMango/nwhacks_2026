@@ -1,5 +1,5 @@
 import asyncio
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from bs4 import BeautifulSoup
 
 AVAILABLE_STATUSES = {
@@ -66,6 +66,10 @@ def parse_available_locations(html: str):
 # ----------------------------
 
 async def get_book_status(library_id: str, isbn: str):
+    """
+    Get book availability status from bibliocommons.
+    Returns quickly if book not found (within 3-4 seconds).
+    """
     library_id = library_id.lower()
 
     search_url = (
@@ -73,67 +77,143 @@ async def get_book_status(library_id: str, isbn: str):
         f"?query={isbn}&searchType=smart"
     )
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+    print(f"[{library_id.upper()}] Searching for ISBN {isbn}")
 
-        # ISBN → record ID
-        await page.goto(search_url)
-        await page.wait_for_selector('a[href*="/v2/record/S"]', timeout=10000)
+    browser = None
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
 
-        href = await page.locator(
-            'a[href*="/v2/record/S"]'
-        ).first.get_attribute("href")
+            # Go to search page
+            await page.goto(search_url, wait_until="domcontentloaded")
 
-        record_id = href.split("/")[-1]
+            # Race: wait for either results OR no-results indicator
+            # This makes "not found" fail fast instead of waiting for timeout
+            try:
+                result_selector = 'a[href*="/v2/record/S"]'
+                no_result_selectors = [
+                    'text="did not match"',
+                    'text="No results"',
+                    'text="0 results"',
+                    '.search-no-results',
+                    '[data-testid="searchNoResults"]'
+                ]
 
-        # Record page
-        record_url = f"https://{library_id}.bibliocommons.com/v2/record/{record_id}"
-        await page.goto(record_url)
+                # Wait for page to settle a bit
+                await page.wait_for_timeout(1000)
 
-        # Summary availability
-        await page.wait_for_selector("div.cp-circulation-info", timeout=10000)
-        summary_html = await page.locator(
-            "div.cp-circulation-info"
-        ).inner_html()
+                # Check for no results first (fast path)
+                for selector in no_result_selectors:
+                    try:
+                        if await page.locator(selector).count() > 0:
+                            print(f"[{library_id.upper()}] No results found for ISBN {isbn}")
+                            await browser.close()
+                            return {
+                                "library": library_id.upper(),
+                                "isbn": isbn,
+                                "record_id": None,
+                                "is_available": False,
+                                "available_locations": [],
+                                "holds": 0,
+                                "copies": 0,
+                                "on_order": 0,
+                                "status_text": "Not in catalog",
+                                "not_found": True,
+                            }
+                    except:
+                        pass
 
-        summary = parse_summary(summary_html)
+                # Check for results
+                result_link = page.locator(result_selector)
 
-        # Trigger lazy-loaded availability table
-        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        await page.wait_for_timeout(1500)
+                # Short timeout - if results exist, they should appear quickly
+                await result_link.first.wait_for(timeout=5000)
 
-        toggle = page.locator(
-            'button:has-text("Check availability"), button:has-text("Availability")'
-        )
-        if await toggle.count() > 0:
-            await toggle.first.click()
-            await page.wait_for_timeout(1500)
+                href = await result_link.first.get_attribute("href")
+                if not href:
+                    raise Exception("No href found")
 
-        await page.wait_for_selector(
-            "div.cp-item-availability-table",
-            state="attached",
-            timeout=8000
-        )
+            except PlaywrightTimeout:
+                print(f"[{library_id.upper()}] Timeout waiting for search results - book likely not in catalog")
+                await browser.close()
+                return {
+                    "library": library_id.upper(),
+                    "isbn": isbn,
+                    "record_id": None,
+                    "is_available": False,
+                    "available_locations": [],
+                    "holds": 0,
+                    "copies": 0,
+                    "on_order": 0,
+                    "status_text": "Not in catalog",
+                    "not_found": True,
+                }
 
-        table_html = await page.locator(
-            "div.cp-item-availability-table"
-        ).inner_html()
+            record_id = href.split("/")[-1]
+            print(f"[{library_id.upper()}] Found record: {record_id}")
 
-        await browser.close()
+            # Record page
+            record_url = f"https://{library_id}.bibliocommons.com/v2/record/{record_id}"
+            await page.goto(record_url, wait_until="domcontentloaded")
 
-    available_locations = parse_available_locations(table_html)
+            # Summary availability
+            try:
+                await page.wait_for_selector("div.cp-circulation-info", timeout=8000)
+                summary_html = await page.locator("div.cp-circulation-info").inner_html()
+                summary = parse_summary(summary_html)
+            except PlaywrightTimeout:
+                print(f"[{library_id.upper()}] Timeout getting circulation info")
+                summary = {"status_text": "", "copies": 0, "on_order": 0, "holds": 0}
 
-    return {
-        "library": library_id.upper(),
-        "isbn": isbn,
-        "record_id": record_id,
-        "is_available": len(available_locations) > 0,
-        "available_locations": available_locations,
-        "holds": summary["holds"],
-        "copies": summary["copies"],
-        "on_order": summary["on_order"],
-    }
+            # Trigger lazy-loaded availability table
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await page.wait_for_timeout(1000)
+
+            toggle = page.locator(
+                'button:has-text("Check availability"), button:has-text("Availability")'
+            )
+            if await toggle.count() > 0:
+                await toggle.first.click()
+                await page.wait_for_timeout(1000)
+
+            # Get availability table
+            available_locations = []
+            try:
+                await page.wait_for_selector(
+                    "div.cp-item-availability-table",
+                    state="attached",
+                    timeout=5000
+                )
+                table_html = await page.locator("div.cp-item-availability-table").inner_html()
+                available_locations = parse_available_locations(table_html)
+            except PlaywrightTimeout:
+                print(f"[{library_id.upper()}] Timeout getting availability table")
+
+            await browser.close()
+
+            result = {
+                "library": library_id.upper(),
+                "isbn": isbn,
+                "record_id": record_id,
+                "is_available": len(available_locations) > 0 or summary["copies"] > 0,
+                "available_locations": available_locations,
+                "holds": summary["holds"],
+                "copies": summary["copies"],
+                "on_order": summary["on_order"],
+                "status_text": summary.get("status_text", ""),
+            }
+            print(f"[{library_id.upper()}] Result: {result['copies']} copies, {len(available_locations)} available locations")
+            return result
+
+    except Exception as e:
+        print(f"[{library_id.upper()}] Error: {e}")
+        if browser:
+            try:
+                await browser.close()
+            except:
+                pass
+        raise
 
 
 # ----------------------------
@@ -143,7 +223,7 @@ async def get_book_status(library_id: str, isbn: str):
 async def main():
     result = await get_book_status(
         library_id="vpl",
-        isbn="9780358434733"
+        isbn="9780747532743"  # Harry Potter
     )
     print(result)
 

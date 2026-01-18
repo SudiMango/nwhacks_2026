@@ -209,7 +209,7 @@ export async function findBookLibraries(
     isbn: string,
     latitude: number,
     longitude: number,
-    maxDistance: number = 15
+    maxDistance: number = 10
 ): Promise<any> {
     try {
         const url = `${API_BASE_URL}/get-book/find?isbn=${encodeURIComponent(

@@ -459,9 +459,11 @@ class LibraryService:
         print(f"Checking {len(library_groups)} library systems: {list(library_groups.keys())}")
 
         # Check availability for each unique bibliocommons library system in parallel
+        # Timeout is 25s since get_book_status now fails fast (~5s) for books not in catalog
+        # Successful scrapes need 15-20s to complete (search -> record page -> availability)
         availability_tasks = {
             library_id: asyncio.create_task(
-                asyncio.wait_for(check_book_availability(library_id, cleaned_isbn), timeout=8.0)
+                asyncio.wait_for(check_book_availability(library_id, cleaned_isbn), timeout=25.0)
             )
             for library_id in library_groups.keys()
         }
@@ -500,18 +502,31 @@ class LibraryService:
                 }
 
                 if availability:
-                    # Use the new branch_matches function for accurate matching
-                    is_available_here = branch_matches(library, availability["available_locations"])
+                    # Check if book was not found in catalog
+                    if availability.get("not_found"):
+                        result.update({
+                            "is_available": False,
+                            "available_locations": [],
+                            "holds": 0,
+                            "copies": 0,
+                            "on_order": 0,
+                            "status_text": "Not in catalog",
+                            "available_at_this_branch": False,
+                            "not_in_catalog": True,
+                        })
+                    else:
+                        # Use the new branch_matches function for accurate matching
+                        is_available_here = branch_matches(library, availability["available_locations"])
 
-                    result.update({
-                        "is_available": availability["is_available"],
-                        "available_locations": availability["available_locations"],
-                        "holds": availability["holds"],
-                        "copies": availability["copies"],
-                        "on_order": availability["on_order"],
-                        "status_text": availability.get("status_text", ""),
-                        "available_at_this_branch": is_available_here,
-                    })
+                        result.update({
+                            "is_available": availability["is_available"],
+                            "available_locations": availability["available_locations"],
+                            "holds": availability["holds"],
+                            "copies": availability["copies"],
+                            "on_order": availability["on_order"],
+                            "status_text": availability.get("status_text", ""),
+                            "available_at_this_branch": is_available_here,
+                        })
                 else:
                     result.update({
                         "is_available": False,
