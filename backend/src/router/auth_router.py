@@ -22,7 +22,9 @@ def signup(data: SignupRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=LoginResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     try:
-        return service.login(db, data)
+        d: LoginResponse = service.login(db, data)
+        print(d.accessToken)
+        return d
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
     

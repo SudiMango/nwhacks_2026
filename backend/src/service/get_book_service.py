@@ -9,6 +9,7 @@ from ..models.Video import Video
 from ..util.elevenlabs_client import ElevenLabsClient
 from ..util.gemini_client import GeminiClient
 from ..util.download import download_tiktok_audio
+from ..models.UserBooks import UserBook
 
 class GetBookService:
     
@@ -18,112 +19,89 @@ class GetBookService:
         self.elevenlabs = ElevenLabsClient()
         self.gemini = GeminiClient()
     
-    def get_book_from_tt(self, db: Session, link: str):
-        """
-        Extract book information from TikTok audio file and save to database.
-        Creates video record if it doesn't exist, and book records if they don't exist.
-        Deletes the audio file after processing.
-        
-        Args:
-            db: SQLAlchemy database session
-            link: TikTok video URL
-        
-        Returns:
-            List of Book objects with extracted information
-        """
+
+
+
+
+    def get_book_from_tt(self, db: Session, link: str, user_id: str):
         audio_file_path = None
         
         try:
-            # Check if video already exists
+            # 1. Handle Video/Transcript (Existing logic)
             existing_video = self.video_repo.get_video_by_url(db, link)
-            
             if existing_video:
-                print(f"Video already exists: {link}")
                 transcript = existing_video.transcript
             else:
-                # Download and transcribe
-                print("downloading...")
                 audio_file_path = download_tiktok_audio(link)
-                print("downloaded!")
-                print("transcribing...")
                 transcribed_text = self.elevenlabs.transcribe(audio_file_path)
-                print("transcribed!")
                 
                 if not transcribed_text:
                     raise Exception("Failed to transcribe audio")
                 
                 transcript = transcribed_text
-                
-                # Create video record
-                video = Video(
-                    platform="tiktok",
-                    url=link,
-                    transcript=transcribed_text
-                )
+                video = Video(platform="tiktok", url=link, transcript=transcribed_text)
                 self.video_repo.create_video(db, video)
-                print(f"Video saved: {link}")
-            
-            # Extract book info (can be multiple books)
+
+            # 2. Extract Book Data
             books_data = self._extract_book_info(transcript)
-            
-            if not books_data or len(books_data) == 0:
+            if not books_data:
                 raise Exception("Failed to extract book information")
             
-            # Process each book
             saved_books = []
             
             for book_data in books_data:
-                # Check if book already exists
                 isbn = book_data.get("isbn")
-                existing_book = None
-                
-                if isbn and isbn != "Not found":
-                    existing_book = self.book_repo.get_book_by_isbn(db, isbn)
-                
-                if existing_book:
-                    print(f"Book already exists: {existing_book.title} by {existing_book.author}")
-                    saved_books.append(existing_book)
-                else:
-                    # Create new book
+                if not isbn or isbn == "Not found":
+                    continue # Cannot accurately link UserBook without ISBN
+
+                # 3. Ensure Book exists in the global 'books' table
+                book = self.book_repo.get_book_by_isbn(db, isbn)
+                if not book:
                     book = Book(
                         title=book_data.get("title"),
                         author=book_data.get("author"),
-                        isbn=book_data.get("isbn"),
+                        isbn=isbn,
                         cover_url=book_data.get("cover_url"),
                         description=book_data.get("description")
                     )
-                    
                     self.book_repo.create_book(db, book)
-                    print(f"Book saved: {book.title} by {book.author}")
-                    saved_books.append(book)
+                
+                # 4. Handle User-Book Relationship
+                # Check if this specific user already has this book
+                existing_user_book = db.query(UserBook).filter(
+                    UserBook.user_id == user_id,
+                    UserBook.isbn == isbn
+                ).first()
+
+                if not existing_user_book:
+                    new_user_book = UserBook(
+                        user_id=user_id,
+                        isbn=isbn,
+                        tbr=True # Defaulting to To-Be-Read
+                    )
+                    db.add(new_user_book)
+                    print(f"Book {isbn} added to user {user_id}'s list.")
+                else:
+                    print(f"User already has book {isbn} in their list.")
+
+                saved_books.append(book)
             
+            db.commit() # Commit all new relations
             return saved_books
         
         except Exception as e:
             print(f"Error in get_book_from_tt: {e}")
             db.rollback()
             return []
-        
         finally:
-            # Delete the audio file if it was downloaded
             if audio_file_path and os.path.exists(audio_file_path):
-                try:
-                    os.remove(audio_file_path)
-                    print(f"Audio file deleted: {audio_file_path}")
-                except Exception as e:
-                    print(f"Failed to delete audio file: {e}")
-    
+                os.remove(audio_file_path)
+
+
+
+
+
     def _extract_book_info(self, text: str):
-        """
-        Extract book titles, authors, ISBNs, cover URLs, and descriptions from transcribed text.
-        Can extract multiple books from a single transcript.
-        
-        Args:
-            text: Transcribed text from audio
-        
-        Returns:
-            List of dictionaries with book information
-        """
         try:
             # Step 1: Use Gemini to extract all books mentioned
             prompt = f"""
@@ -183,17 +161,14 @@ class GetBookService:
             print(f"Error extracting book info: {e}")
             return []
     
+
+
+
+
+
+
+
     def _find_isbn_online(self, title: str, author: str):
-        """
-        Search Google Books API for ISBN, cover URL, and description.
-        
-        Args:
-            title: Book title
-            author: Book author
-        
-        Returns:
-            Dictionary with isbn, cover_url, and description
-        """
         if title == "Not found":
             return {"isbn": "Not found", "cover_url": None, "description": None}
         
