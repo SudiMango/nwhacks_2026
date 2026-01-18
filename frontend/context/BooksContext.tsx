@@ -16,6 +16,7 @@ interface BooksContextType {
   addToCollection: (book: Book) => Promise<void>;
   removeFromCollection: (isbn: string) => Promise<void>;
   isInCollection: (isbn: string) => boolean;
+  refreshBooks: () => Promise<void>;
 }
 
 const BooksContext = createContext<BooksContextType | undefined>(undefined);
@@ -102,6 +103,7 @@ export function BooksProvider({ children }: { children: ReactNode }) {
         addToCollection,
         removeFromCollection,
         isInCollection,
+        refreshBooks: loadBooks,
       }}
     >
       {children}

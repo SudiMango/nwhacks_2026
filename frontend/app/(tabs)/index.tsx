@@ -49,7 +49,7 @@ export default function DiscoverScreen() {
   const [selectedBook, setSelectedBook] = useState<RecommendedBook | null>(null);
   const [isFindingLibraries, setIsFindingLibraries] = useState(false);
 
-  const { addToTbr, isInTbr, tbrBooks } = useBooks();
+  const { addToTbr, isInTbr, isInCollection, tbrBooks } = useBooks();
   const { user } = useAuth();
 
 
@@ -250,8 +250,9 @@ export default function DiscoverScreen() {
     addToTbr(bookForTbr);
   };
 
-  const isBookInTbr = (book: RecommendedBook) => {
-    return isInTbr(book.isbn || book.id || '');
+  const isBookInLibrary = (book: RecommendedBook) => {
+    const isbn = book.isbn || book.id || '';
+    return isInTbr(isbn) || isInCollection(isbn);
   };
 
   return (
@@ -526,25 +527,25 @@ export default function DiscoverScreen() {
                     style={[
                       styles.modalButton,
                       styles.modalAddButton,
-                      isBookInTbr(selectedBook) && styles.modalButtonDisabled,
+                      isBookInLibrary(selectedBook) && styles.modalButtonDisabled,
                     ]}
                     onPress={() => {
                       handleAddRecommendedBook(selectedBook);
                     }}
-                    disabled={isBookInTbr(selectedBook)}
+                    disabled={isBookInLibrary(selectedBook)}
                   >
                     <Ionicons
-                      name={isBookInTbr(selectedBook) ? 'checkmark' : 'add'}
+                      name={isBookInLibrary(selectedBook) ? 'checkmark' : 'add'}
                       size={20}
-                      color={isBookInTbr(selectedBook) ? '#6B7280' : '#0F172A'}
+                      color={isBookInLibrary(selectedBook) ? '#6B7280' : '#0F172A'}
                     />
                     <Text
                       style={[
                         styles.modalAddButtonText,
-                        isBookInTbr(selectedBook) && styles.modalAddButtonTextDisabled,
+                        isBookInLibrary(selectedBook) && styles.modalAddButtonTextDisabled,
                       ]}
                     >
-                      {isBookInTbr(selectedBook) ? 'In Collection' : 'Add to Collection'}
+                      {isBookInLibrary(selectedBook) ? 'Already Saved' : 'Add to TBR'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -752,31 +753,37 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   recommendationCard: {
-    width: 100,
+    width: 90,
     alignItems: 'center',
   },
   recommendationCover: {
-    width: 80,
-    height: 120,
-    borderRadius: 8,
+    width: 72,
+    height: 108,
+    borderRadius: 6,
     backgroundColor: '#E8E8E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   recommendationCoverPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   recommendationTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#0F172A',
     textAlign: 'center',
     marginTop: 6,
+    lineHeight: 14,
   },
   recommendationAuthor: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#6B7280',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 1,
   },
   // Loading overlay
   loadingOverlay: {
@@ -831,8 +838,13 @@ const styles = StyleSheet.create({
   modalCover: {
     width: 100,
     height: 150,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#E8E8E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
   },
   modalCoverPlaceholder: {
     justifyContent: 'center',
