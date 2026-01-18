@@ -39,6 +39,29 @@ export async function updateFavoriteGenres(
 }
 
 /**
+ * Update user's preferred reading formats
+ */
+export async function updatePreferredFormats(
+    userId: string,
+    formats: string[]
+): Promise<void> {
+    const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/reading-formats`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ formats }),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to update reading formats");
+    }
+}
+
+/**
  * Generate recommendations for a user
  */
 export async function generateRecommendations(userId: string): Promise<any> {

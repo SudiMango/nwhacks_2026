@@ -12,8 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '@/context/AuthContext';
-import { genres } from '@/data/genres';
-import { updateFavoriteGenres, updateLastBookRead } from '@/services/api';
+import { genres, readingFormats } from '@/data/genres';
+import { updateFavoriteGenres, updateLastBookRead, updatePreferredFormats } from '@/services/api';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -27,12 +27,15 @@ export default function ProfileScreen() {
   const [isEditingGenres, setIsEditingGenres] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState<string[]>(user?.favoriteGenres || []);
   const [lastBook, setLastBook] = useState(user?.lastBookRead || '');
+  const [isEditingFormats, setIsEditingFormats] = useState(false);
+  const [selectedFormats, setSelectedFormats] = useState<string[]>(user?.readingFormat ? [user.readingFormat] : []);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync state when user changes
   useEffect(() => {
     setSelectedGenres(user?.favoriteGenres || []);
     setLastBook(user?.lastBookRead || '');
+    setSelectedFormats(user?.readingFormat ? [user.readingFormat] : []);
   }, [user]);
 
   const toggleGenre = (genreId: string) => {
@@ -40,6 +43,14 @@ export default function ProfileScreen() {
       prev.includes(genreId)
         ? prev.filter((id) => id !== genreId)
         : [...prev, genreId]
+    );
+  };
+
+  const toggleFormat = (formatId: string) => {
+    setSelectedFormats((prev) =>
+      prev.includes(formatId)
+        ? prev.filter((id) => id !== formatId)
+        : [...prev, formatId]
     );
   };
 
@@ -51,6 +62,19 @@ export default function ProfileScreen() {
       setIsEditingGenres(false);
     } catch (error) {
       console.warn('Failed to save genres', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveFormats = async () => {
+    if (!user?.id) return;
+    setIsSaving(true);
+    try {
+      await updatePreferredFormats(user.id, selectedFormats);
+      setIsEditingFormats(false);
+    } catch (error) {
+      console.warn('Failed to save formats', error);
     } finally {
       setIsSaving(false);
     }
@@ -72,6 +96,11 @@ export default function ProfileScreen() {
   const selectedGenreLabels = genres
     .filter((g) => selectedGenres.includes(g.id))
     .map((g) => `${g.emoji} ${g.label}`);
+
+  // Get format labels for display
+  const selectedFormatLabels = readingFormats
+    .filter((f) => selectedFormats.includes(f.id))
+    .map((f) => `${f.emoji} ${f.label}`);
 
   return (
     <ScrollView
@@ -183,6 +212,87 @@ export default function ProfileScreen() {
             ) : (
               <Text style={styles.noGenresText}>
                 No favorite genres selected. Tap Edit to add some!
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Preferred Reading Formats Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Preferred Reading Formats</Text>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => setIsEditingFormats(!isEditingFormats)}
+          >
+            <Ionicons
+              name={isEditingFormats ? 'close' : 'pencil'}
+              size={16}
+              color="#4A90A4"
+            />
+            <Text style={styles.editButtonText}>
+              {isEditingFormats ? 'Cancel' : 'Edit'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {isEditingFormats ? (
+          <>
+            <View style={styles.formatsGrid}>
+              {readingFormats.map((format) => {
+                const isSelected = selectedFormats.includes(format.id);
+                return (
+                  <TouchableOpacity
+                    key={format.id}
+                    style={[styles.formatCard, isSelected && styles.formatCardSelected]}
+                    onPress={() => toggleFormat(format.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.formatContent}>
+                      <Text style={styles.formatEmoji}>{format.emoji}</Text>
+                      <View style={styles.formatTextContainer}>
+                        <Text style={[styles.formatLabel, isSelected && styles.formatLabelSelected]}>
+                          {format.label}
+                        </Text>
+                        <Text style={styles.formatDescription}>{format.description}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              onPress={handleSaveFormats}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={18} color="#FFF" />
+                  <Text style={styles.saveButtonText}>Save Formats</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={styles.formatsDisplay}>
+            {selectedFormatLabels.length > 0 ? (
+              <View style={styles.formatTagsContainer}>
+                {selectedFormatLabels.map((label, index) => (
+                  <View key={index} style={styles.formatTag}>
+                    <Text style={styles.formatTagText}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noFormatsText}>
+                No preferred formats selected. Tap Edit to add some!
               </Text>
             )}
           </View>
@@ -379,6 +489,86 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   noGenresText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  formatsGrid: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  formatCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  formatCardSelected: {
+    backgroundColor: '#F0F7FA',
+    borderColor: '#4A90A4',
+  },
+  formatContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  formatEmoji: {
+    fontSize: 24,
+  },
+  formatTextContainer: {
+    flex: 1,
+  },
+  formatLabel: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+  },
+  formatLabelSelected: {
+    color: '#4A90A4',
+  },
+  formatDescription: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    borderColor: '#4A90A4',
+    backgroundColor: '#4A90A4',
+  },
+  formatsDisplay: {
+    marginTop: -4,
+  },
+  formatTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  formatTag: {
+    backgroundColor: '#F0F7FA',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  formatTagText: {
+    fontSize: 13,
+    color: '#4A90A4',
+    fontWeight: '500',
+  },
+  noFormatsText: {
     fontSize: 14,
     color: '#9CA3AF',
     fontStyle: 'italic',
