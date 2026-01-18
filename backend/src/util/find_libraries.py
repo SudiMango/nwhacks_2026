@@ -40,7 +40,14 @@ def match_library_system(name: str) -> Optional[str]:
     return None
 
 
-async def find_libraries_near(latitude: float, longitude: float, radius_km: float = 15.0) -> List[Dict]:
+OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+]
+
+
+async def find_libraries_near(latitude: float, longitude: float, radius_km: float = 10.0) -> List[Dict]:
     """
     Find libraries near a location using OpenStreetMap Overpass API.
     Returns a list of libraries with name, coordinates, and matched bibliocommons system.
@@ -58,16 +65,24 @@ async def find_libraries_near(latitude: float, longitude: float, radius_km: floa
     out center;
     """
 
-    url = "https://overpass-api.de/api/interpreter"
+    data = None
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for endpoint in OVERPASS_ENDPOINTS:
+            for attempt in range(2):  # light retry per endpoint
+                try:
+                    response = await client.post(endpoint, data={"data": query})
+                    response.raise_for_status()
+                    data = response.json()
+                    break
+                except Exception as e:
+                    print(f"Overpass failed at {endpoint} (try {attempt + 1}): {e}")
+                    await asyncio.sleep(0.5 * (attempt + 1))
+            if data:
+                break
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(url, data={"data": query}, timeout=30.0)
-            response.raise_for_status()
-            data = response.json()
-        except Exception as e:
-            print(f"Error querying Overpass API: {e}")
-            return []
+    if not data:
+        print("All Overpass endpoints failed")
+        return []
 
     libraries = []
     seen_names = set()  # Avoid duplicates

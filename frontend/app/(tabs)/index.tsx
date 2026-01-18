@@ -630,33 +630,32 @@ export default function DiscoverScreen() {
         showsUserLocation={true}
         showsMyLocationButton={true}
       >
-        {(highlightedLibraries.length > 0 ? highlightedLibraries : location.libraries).map((library) => {
+        {(highlightedLibraries.length > 0 ? highlightedLibraries : location.libraries)
+          .filter((library) => {
+            if (highlightedLibraries.length === 0) return true;
+            return !(library.not_found === true || library.not_in_catalog === true);
+          })
+          .map((library) => {
           const isHighlighted = highlightedLibraries.length > 0;
-          const isAvailable = library.is_available === true;
           const availableAtBranch = library.available_at_this_branch === true;
           const notInCatalog = library.not_found === true || library.not_in_catalog === true;
+          const ownsCopiesHere = typeof library.copies === 'number' && library.copies > 0;
 
-          let bgColor = '#4A90A4';
-          let iconName: keyof typeof Ionicons.glyphMap = 'library';
+          let bgColor = '#EF4444'; // default red: branch has no pickup availability
+          let iconName: keyof typeof Ionicons.glyphMap = 'close-circle';
           let statusText = '';
 
           if (isHighlighted) {
             if (availableAtBranch) {
-              bgColor = '#10B981';
+              bgColor = '#10B981'; // green: available for pickup here
               iconName = 'checkmark-circle';
-              statusText = `Available (${library.copies || 0} copies)`;
-            } else if (isAvailable) {
-              bgColor = '#F59E0B';
-              iconName = 'time';
-              statusText = `At other branches`;
-            } else if (notInCatalog) {
-              bgColor = '#9CA3AF';
-              iconName = 'help-circle';
-              statusText = 'Not in catalog';
-            } else {
-              bgColor = '#EF4444';
+              statusText = `Available here (${library.copies || 0} copies)`;
+            } else if (ownsCopiesHere || library.is_available === false) {
+              bgColor = '#EF4444'; // red: owns copies but none available here
               iconName = 'close-circle';
-              statusText = `${library.holds || 0} holds`;
+              statusText = library.status_text || 'All copies checked out at this branch';
+            } else if (notInCatalog) {
+              return null;
             }
           }
 
@@ -683,7 +682,7 @@ export default function DiscoverScreen() {
               )}
             </Marker>
           );
-        })}
+        }).filter(Boolean)}
       </MapView>
 
       {/* Recommendations Results (AI search or preloaded) */}

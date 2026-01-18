@@ -504,7 +504,23 @@ export default function MyBooksScreen() {
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity
-                                style={styles.findButton}
+                                style={styles.buyButton}
+                                onPress={handlePurchase}
+                            >
+                                <Ionicons
+                                    name="cart-outline"
+                                    size={18}
+                                    color="#0F1115"
+                                />
+                                <Text style={styles.buyButtonText}>
+                                    Buy on Bookshop
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.findButton,
+                                    selectedSource !== "tbr" && styles.findButtonWide,
+                                ]}
                                 onPress={handleFindOnMap}
                             >
                                 <Ionicons
@@ -855,6 +871,9 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 12,
         gap: 8,
+    },
+    findButtonWide: {
+        flex: 2,
     },
     loadingOverlay: {
         position: "absolute",

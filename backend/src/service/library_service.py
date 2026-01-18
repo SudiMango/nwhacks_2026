@@ -360,7 +360,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-async def get_nearby_libraries(latitude: float, longitude: float, max_distance_km: float = 15.0) -> List[Dict]:
+async def get_nearby_libraries(latitude: float, longitude: float, max_distance_km: float = 10.0) -> List[Dict]:
     """Get libraries within max_distance_km using OpenStreetMap data"""
     print(f"Searching for libraries near ({latitude}, {longitude}) within {max_distance_km}km")
 
