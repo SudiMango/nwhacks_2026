@@ -394,7 +394,9 @@ export default function MyBooksScreen() {
                                 autoFocus
                             />
                             {tiktokUrl.length > 0 && !isLoading && (
-                                <TouchableOpacity onPress={() => setTiktokUrl("")}>
+                                <TouchableOpacity
+                                    onPress={() => setTiktokUrl("")}
+                                >
                                     <Ionicons
                                         name="close-circle"
                                         size={18}

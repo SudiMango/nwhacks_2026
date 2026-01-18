@@ -42,7 +42,9 @@ export async function updateFavoriteGenres(
  * Generate recommendations for a user
  */
 export async function generateRecommendations(userId: string): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/users/${userId}/recommendations`);
+    const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/recommendations`
+    );
 
     if (!response.ok) {
         throw new Error("Failed to generate recommendations");
@@ -54,8 +56,12 @@ export async function generateRecommendations(userId: string): Promise<any> {
 /**
  * Fetch recommendations for a user (also triggers generation server-side)
  */
-export async function getRecommendations(userId: string): Promise<{ recommendations: Book[] }> {
-    const response = await fetch(`${API_BASE_URL}/users/${userId}/recommendations`);
+export async function getRecommendations(
+    userId: string
+): Promise<{ recommendations: Book[] }> {
+    const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/recommendations`
+    );
 
     if (!response.ok) {
         throw new Error("Failed to fetch recommendations");
@@ -67,13 +73,16 @@ export async function getRecommendations(userId: string): Promise<{ recommendati
 /**
  * Add a book to a user's TBR (also syncs user_books)
  */
-export async function addUserBookToTbr(userId: string, book: Book): Promise<void> {
+export async function addUserBookToTbr(
+    userId: string,
+    book: Book
+): Promise<void> {
     const payload = {
         book_id: (book as any).book_id || (book as any).bookId,
         isbn: book.isbn,
         title: book.title,
         author: book.author,
-        cover_url: book.coverUrl,
+        cover_url: book.cover_url,
         description: book.description,
     };
 
@@ -102,25 +111,32 @@ export async function markBookRead(
         isbn: isbn || book?.isbn,
         title: book?.title,
         author: book?.author,
-        cover_url: book?.coverUrl,
+        cover_url: book?.cover_url,
         description: book?.description,
     };
 
-    const response = await fetch(`${API_BASE_URL}/users/${userId}/tbr/mark-read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+        `${API_BASE_URL}/users/${userId}/tbr/mark-read`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        }
+    );
 
     if (!response.ok) {
         throw new Error("Failed to mark book as read");
     }
 }
 
-export async function removeUserBook(userId: string, bookId?: string, isbn?: string): Promise<void> {
-    const targetId = bookId || '00000000-0000-0000-0000-000000000000';
+export async function removeUserBook(
+    userId: string,
+    bookId?: string,
+    isbn?: string
+): Promise<void> {
+    const targetId = bookId || "00000000-0000-0000-0000-000000000000";
     const url = new URL(`${API_BASE_URL}/users/${userId}/tbr/${targetId}`);
-    if (isbn) url.searchParams.set('isbn', isbn);
+    if (isbn) url.searchParams.set("isbn", isbn);
 
     const response = await fetch(url.toString(), {
         method: "DELETE",
@@ -134,7 +150,10 @@ export async function removeUserBook(userId: string, bookId?: string, isbn?: str
 /**
  * Fetch user_books entries. If tbrOnly is true, returns only TBR entries; if false, only collection.
  */
-export async function fetchUserBooks(userId: string, tbrOnly: boolean): Promise<Book[]> {
+export async function fetchUserBooks(
+    userId: string,
+    tbrOnly: boolean
+): Promise<Book[]> {
     const url = new URL(`${API_BASE_URL}/users/${userId}/tbr`);
     const response = await fetch(url.toString());
 
@@ -153,7 +172,7 @@ export async function fetchUserBooks(userId: string, tbrOnly: boolean): Promise<
         isbn: item.isbn || "",
         title: item.title || "",
         author: item.author || "",
-        coverUrl: item.cover_url || item.coverUrl || "",
+        cover_url: item.cover_url || item.cover_url || "",
         description: item.description || "",
         book_id: item.book_id || item.bookId,
         bookId: item.book_id || item.bookId,
@@ -417,7 +436,9 @@ export async function getBookRecommendations(
         if (!response.ok) {
             const errorText = await response.text();
             console.error("Recommend books error:", response.status, errorText);
-            throw new Error(`Failed to get recommendations: ${response.status}`);
+            throw new Error(
+                `Failed to get recommendations: ${response.status}`
+            );
         }
 
         const data = await response.json();

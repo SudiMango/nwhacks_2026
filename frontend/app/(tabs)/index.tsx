@@ -171,7 +171,7 @@ export default function DiscoverScreen() {
 
       const topEight = (books || []).slice(0, 8).map((b) => ({
         ...b,
-        cover_url: b.cover_url || (b as any).coverUrl || 'https://placehold.co/110x165?text=No+Cover',
+        cover_url: b.cover_url || (b as any).cover_url || 'https://placehold.co/110x165?text=No+Cover',
       }));
 
       setRecommendations(topEight);
