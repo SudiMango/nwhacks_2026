@@ -10,6 +10,7 @@ import {
     TextInput,
     ActivityIndicator,
     Linking,
+    Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -18,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Book } from "@/data/mockData";
 import { findBookLibraries } from "@/services/api";
 import * as Location from "expo-location";
+import { BookLoader } from "@/components/loading";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 16;
@@ -404,13 +406,7 @@ export default function MyBooksScreen() {
             {isLoading && (
                 <View style={styles.loadingOverlay}>
                     <View style={styles.loadingCard}>
-                        <ActivityIndicator size="large" color="#4A90A4" />
-                        <Text style={styles.loadingTitle}>
-                            Finding Libraries...
-                        </Text>
-                        <Text style={styles.loadingSubtitle}>
-                            Checking availability nearby
-                        </Text>
+                        <BookLoader/>
                     </View>
                 </View>
             )}
